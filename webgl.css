@@ -1,0 +1,25 @@
+/* Styles for a single webgl window */
+body {
+    overflow: hidden; /* No scrollbars */
+    margin: 0;
+}
+canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+}
+#info,#help {
+    position: absolute;
+    text-align:left;
+    font-family: verdana,san-serif;
+    display: block;
+    color: white;
+    font-size: 80%;
+    width: 100%;
+}
+#info {
+    top: 0px;
+}
+#help {
+    bottom: 0px;
+}
