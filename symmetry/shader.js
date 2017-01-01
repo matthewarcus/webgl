@@ -486,8 +486,8 @@
         let delta = 0;
         console.assert(started);
         if (running) {
-            //setTimeout(function () { requestAnimationFrame(drawScene) }, 30);
-            requestAnimationFrame(drawScene);
+            setTimeout(function () { requestAnimationFrame(drawScene) }, 30);
+            //requestAnimationFrame(drawScene);
             if (timelast == null) {
                 timelast = timenow;
             } else {
