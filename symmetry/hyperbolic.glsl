@@ -32,7 +32,7 @@ varying vec2 vTextureCoord; // Could use gl_FragCoord maybe?
 
 const bool doinvert = true; // Do I need this?
 
-const float PI =    3.141592654;
+const float PI = 3.141592654;
 const float TWOPI = 2.0*PI;
 const float SQRT3 = 1.732050808; //sqrt(3.0);
 
@@ -112,12 +112,12 @@ bool tryinvert(inout vec2 z, float p, float r2) {
 }
 
 // Compute the radius of the disk.
-// Some trig, need picture.
+// p is the distance to the centre of the inversion
+// circle for the hyperbolic triangle, r is it's radius,
+// so use Pythagoras to find the right angle for a tangent
+// with the disk.
 float diskradius(float p,float r) {
-  float c = 0.5*p;
-  float x = 0.5*(p*p - r*r)/(p-c);
-  float y2 = r*r - (x-p)*(x-p);
-  return sqrt(x*x + y2);
+  return sqrt(p*p-r*r);
 }
 
 bool tryreflect(inout vec2 z, vec2 norm) {
@@ -192,7 +192,11 @@ void main(void) {
   float theta = PI/float(P); // Central angle of triangle
   float phi = PI/float(Q); // Other angle of triangle
   // Need picture of hyperbolic region
-  float p = 1.0* (cos(theta)/sin(theta) + sin(theta+phi)/cos(theta+phi));
+  // Third side of hyperbolic triangle is an inversion circle.
+  // D,B,C are on x-axis, OBA is a right angle and BA = 1
+  // BOA = COA = theta, OAD = phi, CAB = theta+phi
+  // Maybe should scale to make radius 1 always.
+  float p = cos(theta)/sin(theta) + sin(theta+phi)/cos(theta+phi);
   float r = 1.0/cos(theta+phi);
   float r2 = r*r;
 
@@ -245,13 +249,13 @@ void main(void) {
   }
   
   if (doinvert) {
-    if (abs(eta) < 1e-3) {
+    if (abs(eta) < 1e-4) {
       z.x = -z.x;
     } else if (hyperbolic) {
       // Translate by reflecting in a (hyperbolic) line.
       // Need an approximation for small eta:
       float k = radius/sin(eta);
-      z = invert(z,k,square(k*cos(eta)));
+      z = invert(z,k,k*k-radius*radius);
     } else {
       float k = 1.0/tan(eta);
       z = invert(z,k-sin(eta),square(k));
