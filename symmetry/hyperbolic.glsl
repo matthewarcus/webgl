@@ -84,10 +84,6 @@ float tanh(float x) {
   return (exp(2.0*x)-1.0)/(exp(2.0*x)+1.0);
 }
 
-float square(float x) {
-  return x*x;
-}
-
 // Invert z in circle radius r, centre w = (p,0)
 // z -> z - w
 // z -> z*r^2/|z|^2
@@ -113,7 +109,7 @@ bool tryinvert(inout vec2 z, float p, float r2) {
 
 // Compute the radius of the disk.
 // p is the distance to the centre of the inversion
-// circle for the hyperbolic triangle, r is it's radius,
+// circle for the hyperbolic triangle, r is its radius,
 // so use Pythagoras to find the right angle for a tangent
 // with the disk.
 float diskradius(float p,float r) {
@@ -156,6 +152,17 @@ int next4bits(inout int n) {
   return result;
 }
 
+int next8bits(inout int n) {
+  int n0 = n/256;
+  int result = n-256*n0;
+  n = n0;
+  return result;
+}
+
+float square(float x) {
+  return x*x;
+}
+
 void main(void) {
   float xscale = params1[0];       // Width multiplier
   float yscale = params1[1];       // Height multiplier
@@ -176,7 +183,7 @@ void main(void) {
   float vyfact = vfact[2];
   float voffset = vfact[3];
 
-  // We are using 4+4+1+4+1 = 14 bits for main options
+  // We are using 5+8+8+4 = 25 bits for main options
   // Hopefully we will get 32 bit integers
   int flags = uFlags; //1 + 2*(0 + 2*(1 + 2*(0 + 2*(0 + 2*(4 + 16*(4 + 16*(1 + 16*(0))))))));
 
@@ -185,15 +192,15 @@ void main(void) {
   bool mask = nextbit(flags);
   bool fundamental = nextbit(flags);
   bool chiral = nextbit(flags);
-  int P = next4bits(flags) + int(hyperbolic);;
-  int Q = next4bits(flags);
+  int P = next8bits(flags) + int(hyperbolic);;
+  int Q = next8bits(flags);
   int hplane = next4bits(flags);
 
   float theta = PI/float(P); // Central angle of triangle
   float phi = PI/float(Q); // Other angle of triangle
   // Need picture of hyperbolic region
   // Third side of hyperbolic triangle is an inversion circle.
-  // D,B,C are on x-axis, OBA is a right angle and BA = 1
+  // ODBC are on x-axis, A is height 1 above B, so OBA is a right angle and BA = 1
   // BOA = COA = theta, OAD = phi, CAB = theta+phi
   // Maybe should scale to make radius 1 always.
   float p = cos(theta)/sin(theta) + sin(theta+phi)/cos(theta+phi);
@@ -253,12 +260,11 @@ void main(void) {
       z.x = -z.x;
     } else if (hyperbolic) {
       // Translate by reflecting in a (hyperbolic) line.
-      // Need an approximation for small eta:
       float k = radius/sin(eta);
       z = invert(z,k,k*k-radius*radius);
     } else {
       float k = 1.0/tan(eta);
-      z = invert(z,k-sin(eta),square(k));
+      z = invert(z,k-sin(eta),k*k);
     }
   }
 
@@ -276,7 +282,7 @@ void main(void) {
 
   bool found = false;
   bool odd = false;
-  for(int i = 0; i < 500; i++) {
+  for (int i = 0; i < 100; i++) {
     // Fundamental region is OAB
     // OA is on x-axis, OB is at angle theta
     // AB is circle for hyperbolic case.

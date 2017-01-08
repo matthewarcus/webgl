@@ -291,6 +291,7 @@
             // Ignore event if control key pressed.
             var c = String.fromCharCode(event.charCode)
             var handled = true;
+            const NMAX = 256;
             switch(c) {
             case ' ':
                 running = !running;
@@ -306,10 +307,10 @@
             case '4': flags ^= 8; break;
             case '5': flags ^= 16; break;
             //case '6': flags ^= 32; break;
-            case 'p': P = (P+1)%16; break;
-            case 'P': P = (P+15)%16; break;
-            case 'q': Q = (Q+1)%16; break;
-            case 'Q': Q = (Q+15)%16; break;
+            case 'p': P = (P+1)%NMAX; break;
+            case 'P': P = (P+NMAX-1)%NMAX; break;
+            case 'q': Q = (Q+1)%NMAX; break;
+            case 'Q': Q = (Q+NMAX-1)%NMAX; break;
             case 's': scale *= 1.1; break;
             case 'S': scale /= 1.1; break;
             case 'r': rrepeat += 0.05; break;
@@ -343,9 +344,8 @@
             if (handled) event.preventDefault();
         }
     }
-
     function makeflags() {
-        return flags + (P<<5) + (Q<<(5+4)) + (hplane<<(5+4+4));
+        return flags + (P<<5) + (Q<<(5+8)) + (hplane<<(5+8+8));
     }
     function initProgram(delta) {
         gl.useProgram(program);
