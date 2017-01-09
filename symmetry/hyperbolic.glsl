@@ -136,6 +136,7 @@ bool tryreflect(inout vec2 z, vec2 norm, vec2 w) {
   }
 }
 
+
 // Rather tediously, ES 1.0 doesn't support bit operations
 // on ints, so use these for decoding packed values.
 bool nextbit(inout int n) {
@@ -217,8 +218,7 @@ void main(void) {
   float radius = diskradius(p,r);
 
   vec2 z = vTextureCoord;
-  float x, y;
-  x = z.x; y = z.y;
+  float x = z.x, y = z.y;
 
   if (hplane == 0) {
     // No half-plane
@@ -288,8 +288,9 @@ void main(void) {
     // AB is circle for hyperbolic case.
     // norm is normal to OB, norm2 is other radial
     // reflection - either x-axis or reflection of OA.
-    if (!tryreflect(z,norm) &&
-        !tryreflect(z,norm2)) {
+    // Bizarrely, adding "true &&" here avoids a compilation
+    // error in Firefox _and_ Chrome on Windows.
+    if (true && !tryreflect(z,norm) && !tryreflect(z,norm2)) {
       if (hyperbolic) {
         if (!tryinvert(z,p,r2)) {
           found = true;
@@ -307,7 +308,7 @@ void main(void) {
   }
   if (!found) discard;
   if (chiral && odd) z.y = -z.y;
-
+  
   x = z.x; y = z.y;
   float x0 = cos(psi)*x - sin(psi)*y;
   float y0 = sin(psi)*x + cos(psi)*y;
