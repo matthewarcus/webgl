@@ -157,11 +157,20 @@
     }
 
     let resourcesLoading = 0;
+    let cubeTexture = null;
     function resourceLoaded() {
         resourcesLoading--;
         if (resourcesLoading == 0) {
             program = initShaders(vertexshader,fragmentshader);
             if (program) {
+                if (cubeTexture) {
+                    gl.activeTexture(gl.TEXTURE3);
+                    gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubeTexture);
+                    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+                    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                    gl.hint(gl.GENERATE_MIPMAP_HINT, gl.NICEST);
+                    gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+                }
                 initBuffers();
                 window.addEventListener("keypress",keypressHandler,false);
                 window.addEventListener("resize",function () {
@@ -174,6 +183,25 @@
         }
     }
     
+    function initCubeTexture(filename,format,type) {
+        // new Image() makes an HTMLImageElement()
+        // We store this as a property of the texture object.
+        let image = new Image();
+        image.onload = function() {
+            handleLoadedCubeTexture(image,format,type,filename);
+        }
+        image.src = filename;
+        resourcesLoading++;
+        return true;
+    }
+
+    function handleLoadedCubeTexture(image,format,type,fname) {
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubeTexture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texImage2D(type, 0, format, format, gl.UNSIGNED_BYTE, image);
+        resourceLoaded();
+    }
+
     function initTexture(filename,format,unit) {
         let texture = gl.createTexture();
         // new Image() makes an HTMLImageElement()
@@ -199,18 +227,19 @@
         //gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, texture.image);
         gl.texImage2D(gl.TEXTURE_2D, 0, format, format, gl.UNSIGNED_BYTE, texture.image);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        //gl.hint(gl.GENERATE_MIPMAP_HINT, gl.NICEST);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
         //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         // For patterns that line up at the edge, may not want mirroring.
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
+        gl.hint(gl.GENERATE_MIPMAP_HINT, gl.NICEST);
         gl.generateMipmap(gl.TEXTURE_2D);
         // Only once the textures are loaded do we try and draw
         resourceLoaded();
     }
 
     function initshader(url) {
+        url += "?"+ new Date().getTime();
         const request = new XMLHttpRequest();
         const shader = {}
         request.open("GET", url);
@@ -393,6 +422,7 @@
         const uniforms = [
             { location: gl.getUniformLocation(program, "uSampler"), value: 1 },
             { location: gl.getUniformLocation(program, "uNoise"), value: 2 },
+            { location: gl.getUniformLocation(program, "uCubeMap"), value: 3 },
         ];
 
         // potentially change the values each time around
@@ -414,7 +444,7 @@
         gl.uniform4f(gl.getUniformLocation(program,"params1"),
                      xscale, yscale, xoffset, yoffset);
         gl.uniform4f(gl.getUniformLocation(program,"params2"),
-                     ulimit,vlimit,rrepeat,0);
+                     ulimit,vlimit,rrepeat,time);
 
         let sUniform = gl.getUniformLocation(program, "uVScale")
         gl.uniform1f(sUniform, gl.canvas.height/gl.canvas.width)
@@ -429,6 +459,7 @@
         gl.uniform4f(CDUniform,1,0,0,0);
 
         gl.uniform1i(gl.getUniformLocation(program, "uFlags"), makeflags());
+        gl.uniform1i(gl.getUniformLocation(program, "uType"), ftype);
         
         const aUniform = gl.getUniformLocation(program, "a");
         switch(ctype) {
@@ -614,6 +645,14 @@
         if (gl) {
             gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Set clear color to black and fully opaque
             initTexture("../images/" + imgname, gl.RGBA, gl.TEXTURE1);
+            cubeTexture = gl.createTexture();
+            let dir = "../images/skybox/";
+            initCubeTexture(dir + "nx.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_NEGATIVE_X);
+            initCubeTexture(dir + "ny.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_NEGATIVE_Y);
+            initCubeTexture(dir + "nz.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_NEGATIVE_Z);
+            initCubeTexture(dir + "px.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_POSITIVE_X);
+            initCubeTexture(dir + "py.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_POSITIVE_Y);
+            initCubeTexture(dir + "pz.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_POSITIVE_Z);
             vertexshader = initshader(vsfile);
             fragmentshader = initshader(fsfile);
             setTimeout(function(){
