@@ -73,6 +73,27 @@ float Cayley(float x, float y, float z, float w) {
   return w*x*y + x*y*z + y*z*w + z*w*x;
 }
 
+// T9(x) + T9(y) + T9(z) + 1 = 0 where T9(x) =
+// 256x 9 − 576x 7 + 432x 5 − 120x 3 + 9x
+
+float T9(float x) {
+   return x*(9.0+x*x*(-120.0+x*x*(432.0+x*x*(-576.0+x*x*256.0))));
+}
+
+float Chmutov9(float x, float y, float z, float w) {
+   return T9(x)+T9(y)+T9(z)+1.0;
+}
+// T6(x) + T6(y) + T6(z) = 0 where T6(x) =
+// 2x 2 (3−4x 2 ) 2 −1 = 32x^6 −48x^4 +18x^2 −1
+
+float T6(float x) {
+   return -1.0+x*x*(18.0+x*x*(-48.0+x*x*32.0));
+}
+
+float Chmutov6(float x, float y, float z, float w) {
+   return T6(x)+T6(y)+T6(z)+1.0;
+}
+
 // The following functions for various surfaces are
 // taken from Abdelaziz Nait Merzouk's Fragmentarium
 // shaders.
@@ -187,6 +208,7 @@ float Fun(float x, float y, float z, float w) {
   else if (uType == 2) return Barth10(x,y,z,w);
   else if (uType == 3) return Sarti12(x,y,z,w);
 #else
+  //return Chmutov6(x,y,z,w);
   if (uType == 0) return Labs(x,y,z,w);
   else if (uType == 1) return Barth(x,y,z,w);
   else if (uType == 2) return Endrass8(x,y,z,w);
