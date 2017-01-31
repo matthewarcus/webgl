@@ -1,5 +1,3 @@
-precision highp float;
-
 // The MIT License (MIT)
 
 // Copyright (c) 2017 Matthew Arcus
@@ -25,6 +23,10 @@ precision highp float;
 // Contains functions computing polynomial for various surfaces
 // taken from Abdelaziz Nait Merzouk's Fragmentarium shaders.
 // https://plus.google.com/114982179961753756261
+
+precision highp float;
+
+//#define BENCHMARK
 
 uniform vec4 params1;
 uniform vec4 params2;
@@ -73,12 +75,54 @@ float Cayley(float x, float y, float z, float w) {
   return w*x*y + x*y*z + y*z*w + z*w*x;
 }
 
+float T9(float x) {
+  float x2 = x*x;
+  return x*(9.0+x2*(-120.0+x2*(432.0+x2*(-576.0+x2*256.0))));
+}
+float T10(float x) {
+  float x2 = x*x;
+  return -1.0 + x2*(50.0 + x2*(-400.0 + x2*(1120.0 + x2*(-1280.0 + x2*512.0))));
+}
+// These recurrences take a while to compile.
+float T11(float x) {
+  return 2.0*x*T10(x) - T9(x);
+}
+float T12(float x) {
+  return 2.0*x*T11(x) - T10(x);
+}
+float T13(float x) {
+  return 2.0*x*T12(x) - T11(x);
+}
+float T14(float x) {
+  return 2.0*x*T13(x) - T12(x);
+}
+float T15(float x) {
+  return 2.0*x*T14(x) - T13(x);
+}
+float T16(float x) {
+  return 2.0*x*T15(x) - T14(x);
+}
+float T17(float x) {
+  return 2.0*x*T16(x) - T15(x);
+}
+float T18(float x) {
+  return 2.0*x*T17(x) - T16(x);
+}
+
+float Chmutov10(float x, float y, float z, float w) {
+   return T10(x)+T10(y)+T10(z)+1.0;
+}
+
+float Chmutov14(float x, float y, float z, float w) {
+   return T14(x)+T14(y)+T14(z)+1.0;
+}
+
+float Chmutov18(float x, float y, float z, float w) {
+   return T18(x)+T18(y)+T18(z)+1.0;
+}
+
 // T9(x) + T9(y) + T9(z) + 1 = 0 where T9(x) =
 // 256x 9 − 576x 7 + 432x 5 − 120x 3 + 9x
-
-float T9(float x) {
-   return x*(9.0+x*x*(-120.0+x*x*(432.0+x*x*(-576.0+x*x*256.0))));
-}
 
 float Chmutov9(float x, float y, float z, float w) {
    return T9(x)+T9(y)+T9(z)+1.0;
@@ -106,6 +150,24 @@ float Barth(float x, float y, float z, float w) {
   float A = 4.0*(phi2*x2-y2)*(phi2*y2-z2)*(phi2*z2-x2);
   float B = x2 + y2 + z2 - w2;
   return (1.0+2.0*phi)*w2*B*B - A;
+}
+
+float Labs7(vec4 p){
+   float a = -0.140106854987125;//the real root of 7*a^3+7*a+1=0
+   //Constants
+   float a1= -0.0785282014969835;//(-12./7.*a-384./49.)*a-8./7.;
+   float a2= -4.1583605922880200;//(-32./7.*a+24./49.)*a-4.; 
+   float a3= -4.1471434889655100;//(-4.*a+24./49.)*a-4.;
+   float a4= -1.1881659380714800;//(-8./7.*a+8./49.)*a-8./7.; 
+   float a5= 51.9426145948147000;//(49.*a-7.)*a+50.;
+
+   float	r2= dot(p.xy,p.xy);
+   vec4 p2=p*p;
+   float U = (p.z+p.w)*r2+(a1*p.z+a2*p.w)*p2.z+(a3*p.z+a4*p.w)*p2.w;
+   U = (p.z+a5*p.w)*U*U;
+   float P = p.x*((p2.x-3.*7.*p2.y)*p2.x*p2.x+(5.*7.*p2.x-7.*p2.y)*p2.y*p2.y);
+   P+= p.z*(7.*(((r2-8.*p2.z)*r2+16.*p2.z*p2.z)*r2)-64.*p2.z*p2.z*p2.z);
+   return U-P;
 }
 
 float Labs(float x, float y, float z, float w) {
@@ -151,11 +213,11 @@ float Endrass_8(float x, float y, float z, float w){
 
 float Barth10(float x, float y, float z, float w){//decic
   vec4 P = vec4(x,y,z,w);
-   float r2=dot(P.xyz,P.xyz);
-   vec4 P2=P*P;
-   float r4=dot(P2.xyz,P2.xyz);
-   vec4 P4=P2*P2;
-   return (8.0*(P2.x-PHI4*P2.y)*(P2.y-PHI4*P2.z)*(P2.z-PHI4*P2.x)*(r4-2.0*((P.x*P.y)*(P.x*P.y)+(P.x*P.z)*(P.x*P.z)+(P.y*P.z)*(P.y*P.z)))+(3.0+5.0*PHI)*(r2-P2.w)*(r2-P2.w)*(r2-(2.0-PHI)*P2.w)*(r2-(2.0-PHI)*P2.w)*P2.w);
+  float r2 = dot(P.xyz,P.xyz);
+  vec4 P2 = P*P;
+  float r4 = dot(P2.xyz,P2.xyz);
+  vec4 P4 = P2*P2;
+  return (8.0*(P2.x-PHI4*P2.y)*(P2.y-PHI4*P2.z)*(P2.z-PHI4*P2.x)*(r4-2.0*((P.x*P.y)*(P.x*P.y)+(P.x*P.z)*(P.x*P.z)+(P.y*P.z)*(P.y*P.z)))+(3.0+5.0*PHI)*(r2-P2.w)*(r2-P2.w)*(r2-(2.0-PHI)*P2.w)*(r2-(2.0-PHI)*P2.w)*P2.w);
 }
 
 //   Dodecics
@@ -179,6 +241,10 @@ float Sarti12(float x, float y, float z, float w){
 }
 
 float Fun(float x, float y, float z, float w) {
+#if defined BENCHMARK
+  //return Barth10(x,y,z,w);
+  return Labs7(vec4(x,y,z,w));
+#else
   float time = params2[3];
   float k = 0.1*time;
 
@@ -186,33 +252,19 @@ float Fun(float x, float y, float z, float w) {
   vec4 p = vec4(x,y,z,w);
   float cosk = cos(k);
   float sink = sin(k);
-  if (cosk < 0.0) {
-    //cosk *= -1.0; sink *= -1.0;
-  }
   mat4 m = qmat(cosk,-sink,0.0,0.0);
   p = m*p;
-#if 1
   x = p.x;
   y = p.y;
   z = p.z;
   w = p.w;
-#else  
-  x = p.x;
-  y = cos(k/10.0) * p.y - sin(k/10.0)*p.z;
-  z = sin(k/10.0) * p.y + cos(k/10.0)*p.z;
-  w = p.w;
-#endif
-#if 0
-  if (uType == 0) return Endrass8(x,y,z,w);
-  else if (uType == 1) return Endrass_8(x,y,z,w);
-  else if (uType == 2) return Barth10(x,y,z,w);
-  else if (uType == 3) return Sarti12(x,y,z,w);
-#else
-  //return Chmutov6(x,y,z,w);
+
   if (uType == 0) return Labs(x,y,z,w);
   else if (uType == 1) return Barth(x,y,z,w);
   else if (uType == 2) return Endrass8(x,y,z,w);
-  else if (uType == 3) return Sarti12(x,y,z,w);
+  else if (uType == 3) return Barth10(x,y,z,w);
+  else if (uType == 4) return Sarti12(x,y,z,w);
+  else if (uType == 5) return Chmutov14(x,y,z,w);
   else return Sphere(x,y,z,w);
 #endif  
 }
@@ -224,25 +276,32 @@ bool nextbit(inout int n) {
   return result;
 }
 
+// Solution parameters.
+// For better quality, use eg:
+// maxstep = 0.5
+// iterations = 200
+// maxincrease = 1.1
+const float maxstep = 2.0;     // The largest step that can be taken.
+const float minstep = 0.0001;  // The smallest step
+const int iterations = 100;    // Maximum number of iterations
+const float maxincrease = 1.1; // Largest allowed step increase.
+
+const float radius = 6.0; // Restrict view to this (unused)
+
 void solve(float x0, float y0, float z0,
            float a, float b, float c) {
-  float maxstep = 1.0;
-  // minstep isn't time critical. Small makes
-  // for nice cones.
-  float minstep = 0.001;
-
   float k0 = 0.0, k1;
   float a0 = Fun(x0,y0,z0,1.0), a1;
   bool bracketed = false;
   float step = 1.0;
-  for (int i = 0; i < 100; i++) {
+  float x, y, z, w;
+  for (int i = 0; i < iterations; i++) {
     if (bracketed) {
-      float bfact = 0.5;
       // Once we are bracketed, just use bisection
-      // Reduce bfact to bias towards start of interval
       if (k1-k0 < minstep) break;
-      float k2 = (1.0-bfact)*k0 + bfact*k1;
-      float a2 = Fun(x0+k2*a,y0+k2*b,z0+k2*c,1.0);
+      float k2 = (k0 + k1)/2.0;
+      x = x0+k2*a, y = y0+k2*b, z = z0+k2*c, w = 1.0;
+      float a2 = Fun(x,y,z,w);
       if (a0*a2 <= 0.0) {
         k1 = k2; a1 = a2;
       } else {
@@ -250,9 +309,9 @@ void solve(float x0, float y0, float z0,
       }
     } else {
       k1 = k0 + step;
-      float x = x0+k1*a, y = y0+k1*b, z = z0+k1*c, w = 1.0;
-      //float radius = 10.0;
-      //if (x*x+y*y+z*z+w*w > radius*radius) break;
+      //if (k1 > 20.0) break;
+      x = x0+k1*a, y = y0+k1*b, z = z0+k1*c, w = 1.0;
+      //if (x*x+y*y+z*z > radius*radius) break;
       a1 = Fun(x,y,z,w);
       // We can hit exactly 0 - this counts as bracketed.
       if (a0*a1 <= 0.0) {
@@ -260,25 +319,23 @@ void solve(float x0, float y0, float z0,
       } else {
         float step0 = step;
         step = a1*step/(a0-a1);
-        //step = perp(k0,a0,k1,a1);
-        if (step < 0.0) step = -step;
-        if (step > maxstep) step = maxstep;
+        //step = perp(k0,a0,k1,a1); // Nice idea...
+        step = abs(step);
+        step = min(step,maxstep);
         // Don't grow step by more than 10%
         // A better strategy should be possible
         // Detect overstepping & retreat.
-        if (step < minstep) step = minstep;
-        float sfact = 1.1;
-        if (step > sfact*step0) step = sfact*step0;
+        step = max(step,minstep);
+        step = min(step,maxincrease*step0);
         k0 = k1; a0 = a1;
       }
     }
   }
   vec3 eye = vec3(a,b,c);
   vec3 light = normalize(vec3(0.0,1.0,0.5));
-  if (!bracketed) {
+  if (!bracketed /*|| x*x+y*y+z*z > radius*radius*/) {
     //gl_FragColor = vec4(textureCube(uCubeMap,eye).rgb,1.0);
     discard;
-    return;
   }
   // Compute gradient & normal
   float eps = 1e-3;
@@ -306,16 +363,16 @@ void solve(float x0, float y0, float z0,
   }
   if (dot(eye,n) > 0.0) n *= -1.0;
   vec3 color = baseColor.xyz*(ambient+(1.0-ambient)*dot(light,n));
-  float specular = pow(max(0.0,dot(reflect(light,n),eye)),2.0);
+  float specular = pow(max(0.0,dot(reflect(light,n),eye)),4.0);
   color += 0.5*specular*vec3(1.0,1.0,1.0);
   gl_FragColor = vec4(color,1.0);
 }
 
 void main(void) {
+  float time = params2[3];
   float xscale = params1[0];       // Width multiplier
   float yscale = params1[1];       // Height multiplier
-  //float x0 = cos(time), y0 = sin(time), z0 = 6.0;
-  float x0 = 0.0, y0 = 0.0, z0 = 10.0;
+  float x0 = 0.0, y0 = 0.0, z0 = 4.0;
   float x = 2.0*(vTextureCoord[0]-0.5)*xscale; // + 2.0*xoffset;
   float y = 2.0*(vTextureCoord[1]-0.5)*yscale; // + 2.0*yoffset;
   float z = 0.0;
@@ -324,5 +381,6 @@ void main(void) {
   float c = z-z0;
   float r = sqrt(a*a + b*b + c*c);
   a /= r; b /= r; c /= r;
+  // Could move ray start to radius limit.
   solve(x0,y0,z0,a,b,c);
 }

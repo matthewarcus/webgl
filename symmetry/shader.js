@@ -43,7 +43,7 @@
     let ctype = 0;
     const nctypes = 4;
     let ftype = 0;
-    const nftypes = 4;
+    const nftypes = 6;
 
     let P = 4;
     let Q = 4;
