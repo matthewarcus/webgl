@@ -36,6 +36,17 @@ varying vec2 vTextureCoord;
 const float phi = 1.618033;
 const float phi2 = phi*phi;
 
+float dist(float x0, float y0, float x1, float y1, float x2, float y2) {
+   float a = abs((y2-y1)*x0 - (x2 - x1)*y0 + x2*y1 - y2*x1);
+   float b = sqrt((y2-y1)*(y2-y1)+(x2-x1)*(x2-x1));
+   return a/b;
+}
+
+float perp(float x1, float y1, float x2, float y2) {
+   float x0 = x2, y0 = 0.0;
+   return dist(x0,y0,x1,y1,x2,y2);
+}
+
 // Quaternion multiplication as a matrix.
 mat4 qmat(float p0, float p1, float p2, float p3) {
   // As a matrix mul:
@@ -193,6 +204,11 @@ bool nextbit(inout int n) {
 
 void solve(float x0, float y0, float z0,
            float a, float b, float c) {
+  float maxstep = 1.0;
+  // minstep isn't time critical. Small makes
+  // for nice cones.
+  float minstep = 0.001;
+
   float k0 = 0.0, k1;
   float a0 = Fun(x0,y0,z0,1.0), a1;
   bool bracketed = false;
@@ -202,10 +218,10 @@ void solve(float x0, float y0, float z0,
       float bfact = 0.5;
       // Once we are bracketed, just use bisection
       // Reduce bfact to bias towards start of interval
-      if (abs(k1-k0) < 1e-3) break;
+      if (k1-k0 < minstep) break;
       float k2 = (1.0-bfact)*k0 + bfact*k1;
       float a2 = Fun(x0+k2*a,y0+k2*b,z0+k2*c,1.0);
-      if (a0*a2 < 0.0) {
+      if (a0*a2 <= 0.0) {
         k1 = k2; a1 = a2;
       } else {
         k0 = k2; a0 = a2;
@@ -221,11 +237,8 @@ void solve(float x0, float y0, float z0,
         bracketed = true;
       } else {
         float step0 = step;
-        float maxstep = 1.0;
-        // minstep isn't time critical. Small makes
-        // for nice cones.
-        float minstep = 0.0001;
         step = a1*step/(a0-a1);
+        //step = perp(k0,a0,k1,a1);
         if (step < 0.0) step = -step;
         if (step > maxstep) step = maxstep;
         // Don't grow step by more than 10%
