@@ -1,3 +1,5 @@
+precision highp float;
+
 // The MIT License (MIT)
 
 // Copyright (c) 2017 Matthew Arcus
@@ -24,7 +26,6 @@
 // taken from Abdelaziz Nait Merzouk's Fragmentarium shaders.
 // https://plus.google.com/114982179961753756261
 
-precision highp float;
 uniform vec4 params1;
 uniform vec4 params2;
 uniform int uType;
