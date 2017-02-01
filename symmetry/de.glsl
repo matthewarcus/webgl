@@ -35,6 +35,9 @@ uniform int uFlags;
 uniform samplerCube uCubeMap;
 varying vec2 vTextureCoord;
 
+// Things that should be uniforms
+const vec3 defaultColor = vec3(1.0,0.5,0.0);
+
 const float phi = 1.618033;
 const float phi2 = phi*phi;
 
@@ -114,7 +117,7 @@ float Chmutov10(float x, float y, float z, float w) {
 }
 
 float Chmutov14(float x, float y, float z, float w) {
-   return T14(x)+T14(y)+T14(z)+1.0;
+  return T14(x)+T14(y)+T14(z)+1.0;
 }
 
 float Chmutov18(float x, float y, float z, float w) {
@@ -242,8 +245,8 @@ float Sarti12(float x, float y, float z, float w){
 
 float Fun(float x, float y, float z, float w) {
 #if defined BENCHMARK
-  //return Barth10(x,y,z,w);
-  return Labs7(vec4(x,y,z,w));
+  return Barth10(x,y,z,w);
+  //return Labs7(vec4(x,y,z,w));
 #else
   float time = params2[3];
   float k = 0.1*time;
@@ -277,28 +280,42 @@ bool nextbit(inout int n) {
 }
 
 // Solution parameters.
-// For better quality, use eg:
-// maxstep = 0.5
-// iterations = 200
-// maxincrease = 1.1
-const float maxstep = 2.0;     // The largest step that can be taken.
-const float minstep = 0.0001;  // The smallest step
+//#define FAST
+//#define QUALITY
+
+#if defined FAST
 const int iterations = 100;    // Maximum number of iterations
 const float maxincrease = 1.1; // Largest allowed step increase.
+#elif defined QUALITY
+const int iterations = 300;    // Maximum number of iterations
+const float maxincrease = 1.03; // Largest allowed step increase.
+#else
+const int iterations = 150;    // Maximum number of iterations
+const float maxincrease = 1.06; // Largest allowed step increase.
+#endif
 
+const float maxstep = 1.0;     // The largest step that can be taken.
+const float minstep = 0.001;  // The smallest step
+const float initstep = 1.0;
+const float camera = 10.0;
 const float radius = 6.0; // Restrict view to this (unused)
-
+const float horizon = 20.0; // limit on k
 void solve(float x0, float y0, float z0,
            float a, float b, float c) {
   float k0 = 0.0, k1;
   float a0 = Fun(x0,y0,z0,1.0), a1;
   bool bracketed = false;
-  float step = 1.0;
+  bool found = false;
+  float step = initstep;
   float x, y, z, w;
+  float expected = 0.0;
   for (int i = 0; i < iterations; i++) {
     if (bracketed) {
       // Once we are bracketed, just use bisection
-      if (k1-k0 < minstep) break;
+      if (k1-k0 < minstep) {
+        found = true;
+        break;
+      }
       float k2 = (k0 + k1)/2.0;
       x = x0+k2*a, y = y0+k2*b, z = z0+k2*c, w = 1.0;
       float a2 = Fun(x,y,z,w);
@@ -309,17 +326,25 @@ void solve(float x0, float y0, float z0,
       }
     } else {
       k1 = k0 + step;
-      //if (k1 > 20.0) break;
+      if (k1 > horizon) break;
       x = x0+k1*a, y = y0+k1*b, z = z0+k1*c, w = 1.0;
       //if (x*x+y*y+z*z > radius*radius) break;
       a1 = Fun(x,y,z,w);
-      // We can hit exactly 0 - this counts as bracketed.
-      if (a0*a1 <= 0.0) {
+      //The idea here is to try and correct the
+      // step size by seeing how close we are to
+      // the curve, but it doesn't seem to work
+      // very well.
+      float q = abs((a1-expected)/(a1+expected));
+      if (false && expected != 0.0 && q > 0.25) {
+        step *= 0.5;
+        expected = a0 + 0.5*(expected - a0);
+      } else if (a0*a1 <= 0.0) {
+        // We can hit exactly 0 - this counts as bracketed.
         bracketed = true;
       } else {
         float step0 = step;
         step = a1*step/(a0-a1);
-        //step = perp(k0,a0,k1,a1); // Nice idea...
+        //step = perp(k0,a0,k1,a1); // Another nice idea...
         step = abs(step);
         step = min(step,maxstep);
         // Don't grow step by more than 10%
@@ -327,13 +352,15 @@ void solve(float x0, float y0, float z0,
         // Detect overstepping & retreat.
         step = max(step,minstep);
         step = min(step,maxincrease*step0);
+        if (a1 <= a0) expected = 0.0;
+        else expected = a1 + step*(a1-a0)/(k1-k0);
         k0 = k1; a0 = a1;
       }
     }
   }
   vec3 eye = vec3(a,b,c);
   vec3 light = normalize(vec3(0.0,1.0,0.5));
-  if (!bracketed /*|| x*x+y*y+z*z > radius*radius*/) {
+  if (!found /*|| x*x+y*y+z*z > radius*radius*/) {
     //gl_FragColor = vec4(textureCube(uCubeMap,eye).rgb,1.0);
     discard;
   }
@@ -359,7 +386,7 @@ void solve(float x0, float y0, float z0,
     baseColor = textureCube(uCubeMap,reflect(eye,n)).rgb;
     //baseColor = textureCube(uCubeMap,n).rgb;
   } else {
-    baseColor = vec3(1.0,0.5,0.0);
+    baseColor = defaultColor;
   }
   if (dot(eye,n) > 0.0) n *= -1.0;
   vec3 color = baseColor.xyz*(ambient+(1.0-ambient)*dot(light,n));
@@ -372,7 +399,7 @@ void main(void) {
   float time = params2[3];
   float xscale = params1[0];       // Width multiplier
   float yscale = params1[1];       // Height multiplier
-  float x0 = 0.0, y0 = 0.0, z0 = 4.0;
+  float x0 = 0.0, y0 = 0.0, z0 = camera;
   float x = 2.0*(vTextureCoord[0]-0.5)*xscale; // + 2.0*xoffset;
   float y = 2.0*(vTextureCoord[1]-0.5)*yscale; // + 2.0*yoffset;
   float z = 0.0;
