@@ -36,7 +36,8 @@ uniform samplerCube uCubeMap;
 varying vec2 vTextureCoord;
 
 // Things that should be uniforms
-const vec3 defaultColor = vec3(1.0,0.5,0.0);
+//const vec3 defaultColor = vec3(1.0,0.5,0.0);
+const vec3 defaultColor = vec3(0.8,1.0,0.8);
 
 const float phi = 1.618033;
 const float phi2 = phi*phi;
@@ -267,7 +268,9 @@ float Fun(float x, float y, float z, float w) {
   else if (uType == 2) return Endrass8(x,y,z,w);
   else if (uType == 3) return Barth10(x,y,z,w);
   else if (uType == 4) return Sarti12(x,y,z,w);
-  else if (uType == 5) return Chmutov14(x,y,z,w);
+  else if (uType == 5) return Chmutov10(x,y,z,w);
+  else if (uType == 6) return Endrass_8(x,y,z,w);
+  else if (uType == 7) return Chmutov14(x,y,z,w);
   else return Sphere(x,y,z,w);
 #endif  
 }
