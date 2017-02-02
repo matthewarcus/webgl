@@ -33,6 +33,7 @@ uniform vec4 a;
 uniform ivec4 mn0;
 uniform ivec4 mn1;
 uniform int uFlags;
+uniform int uType;
       
 varying vec2 vTextureCoord; // Could use gl_FragCoord maybe?
 //varying lowp vec4 vColor;   // Not used currently
@@ -136,7 +137,7 @@ void main(void) {
 
   int flags = uFlags;
   bool hexagonal = nextbit(flags);
-  int ftype = next4bits(flags);
+  int ftype = uType; //next4bits(flags);
   
 #if 0
   float r = sqrt(x*x+y*y);

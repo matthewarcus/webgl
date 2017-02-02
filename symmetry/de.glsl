@@ -27,6 +27,8 @@
 precision highp float;
 
 //#define BENCHMARK
+//#define FAST
+#define QUALITY
 
 uniform vec4 params1;
 uniform vec4 params2;
@@ -37,7 +39,9 @@ varying vec2 vTextureCoord;
 
 // Things that should be uniforms
 //const vec3 defaultColor = vec3(1.0,0.5,0.0);
-const vec3 defaultColor = vec3(0.8,1.0,0.8);
+//const vec3 defaultColor = vec3(0.8,1.0,0.8);
+const vec3 defaultColor = vec3(0.2,0.1,0.1);
+const vec3 light = normalize(vec3(0.0,1.0,1.0));
 
 const float phi = 1.618033;
 const float phi2 = phi*phi;
@@ -283,9 +287,6 @@ bool nextbit(inout int n) {
 }
 
 // Solution parameters.
-//#define FAST
-//#define QUALITY
-
 #if defined FAST
 const int iterations = 100;    // Maximum number of iterations
 const float maxincrease = 1.1; // Largest allowed step increase.
@@ -362,7 +363,6 @@ void solve(float x0, float y0, float z0,
     }
   }
   vec3 eye = vec3(a,b,c);
-  vec3 light = normalize(vec3(0.0,1.0,0.5));
   if (!found /*|| x*x+y*y+z*z > radius*radius*/) {
     //gl_FragColor = vec4(textureCube(uCubeMap,eye).rgb,1.0);
     discard;
@@ -370,14 +370,16 @@ void solve(float x0, float y0, float z0,
   // Compute gradient & normal
   float eps = 1e-3;
 #if 1
-  vec3 n = normalize(vec3(Fun(x0+k0*a+eps,y0+k0*b,z0+k0*c,1.0),
-                          Fun(x0+k0*a,y0+k0*b+eps,z0+k0*c,1.0),
-                          Fun(x0+k0*a,y0+k0*b,z0+k0*c+eps,1.0)) - a0);
+  vec3 n = vec3(Fun(x0+k0*a+eps,y0+k0*b,z0+k0*c,1.0),
+                Fun(x0+k0*a,y0+k0*b+eps,z0+k0*c,1.0),
+                Fun(x0+k0*a,y0+k0*b,z0+k0*c+eps,1.0)) - a0;
 #else
-  vec3 n = normalize(vec3(Fun(x0+k0*a+eps,y0+k0*b,z0+k0*c,1.0) - Fun(x0+k0*a-eps,y0+k0*b,z0+k0*c,1.0),
-                          Fun(x0+k0*a,y0+k0*b+eps,z0+k0*c,1.0) - Fun(x0+k0*a,y0+k0*b-eps,z0+k0*c,1.0),
-                          Fun(x0+k0*a,y0+k0*b,z0+k0*c+eps,1.0) - Fun(x0+k0*a,y0+k0*b,z0+k0*c-eps,1.0)));
+  vec3 n = vec3(Fun(x0+k0*a+eps,y0+k0*b,z0+k0*c,1.0) - Fun(x0+k0*a-eps,y0+k0*b,z0+k0*c,1.0),
+                Fun(x0+k0*a,y0+k0*b+eps,z0+k0*c,1.0) - Fun(x0+k0*a,y0+k0*b-eps,z0+k0*c,1.0),
+                Fun(x0+k0*a,y0+k0*b,z0+k0*c+eps,1.0) - Fun(x0+k0*a,y0+k0*b,z0+k0*c-eps,1.0));
 #endif
+  float grad = abs(length(n));
+  n = normalize(n);
   float ambient = 0.6;
   float diffuse = 1.0-ambient;
 
@@ -387,14 +389,14 @@ void solve(float x0, float y0, float z0,
   vec3 baseColor;
   if (skymap) {
     baseColor = textureCube(uCubeMap,reflect(eye,n)).rgb;
-    //baseColor = textureCube(uCubeMap,n).rgb;
   } else {
     baseColor = defaultColor;
   }
+  //baseColor.r = min(5.0*grad,1.0);
   if (dot(eye,n) > 0.0) n *= -1.0;
   vec3 color = baseColor.xyz*(ambient+(1.0-ambient)*dot(light,n));
   float specular = pow(max(0.0,dot(reflect(light,n),eye)),4.0);
-  color += 0.5*specular*vec3(1.0,1.0,1.0);
+  color += 0.7*specular*vec3(1.0,1.0,1.0);
   gl_FragColor = vec4(color,1.0);
 }
 

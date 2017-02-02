@@ -646,7 +646,8 @@
             gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Set clear color to black and fully opaque
             initTexture("../images/" + imgname, gl.RGBA, gl.TEXTURE1);
             cubeTexture = gl.createTexture();
-            let dir = "../images/skybox/";
+            //let dir = "../images/skybox/";
+            let dir = "../images/MilkyWay/";
             initCubeTexture(dir + "nx.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_NEGATIVE_X);
             initCubeTexture(dir + "ny.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_NEGATIVE_Y);
             initCubeTexture(dir + "nz.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_NEGATIVE_Z);
