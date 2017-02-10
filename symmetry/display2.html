@@ -15,7 +15,11 @@
     <script src="shader.js" type="text/javascript"></script>
     <script type="text/javascript">
       // Could make this window.onload or use an event handler.
-      runoncanvas(glcanvas, "basicvertexshader.glsl","hyperbolic.glsl");
+      let config = {
+      vsfile: "basicvertexshader.glsl",
+      fsfile: "hyperbolic.glsl"
+      }
+      runoncanvas(glcanvas, config);
     </script>      
   </body>
 </html>

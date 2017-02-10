@@ -38,12 +38,12 @@
     let elapsed = 0;
     let frametime = 0;
 
-    let symtype = 0;
-    const nsymtypes = 5;
+    let stype = 0;
+    let stypecount = 5;
     let ctype = 0;
-    const nctypes = 4;
+    let ctypecount = 4;
     let ftype = 0;
-    const nftypes = 8;
+    let ftypecount = 8;
 
     let P = 4;
     let Q = 4;
@@ -70,7 +70,9 @@
     let yoffset = 0;
     let uoffset = 0;
     let voffset = 0;
-    let time = 0;
+    let clock0 = 0;
+    let clock1 = 0;
+    let progressive = false;
     
     // Initialize WebGL, returning the GL context or null if
     // WebGL isn't available or could not be initialized.
@@ -78,7 +80,7 @@
         let gl = null;
         try {
             // Could have "webgl-experimental" here instead
-            gl = canvas.getContext("experimental-webgl")
+            gl = canvas.getContext("experimental-webgl",attributes)
         }
         catch(e) {
             console.log(e)
@@ -101,7 +103,7 @@
         gl.linkProgram(program);
         gl.validateProgram(program); // Check all well
         // If creating the shader program failed, alert
-        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS) || gl.isContextLost()) {
             alert("Unable to initialize the shader program: " +
                   gl.getProgramInfoLog(program));
             error = true;
@@ -156,6 +158,7 @@
         return makeShader(source,shadertype);
     }
 
+    let framenumber = 0;
     let resourcesLoading = 0;
     let cubeTexture = null;
     function resourceLoaded() {
@@ -232,6 +235,8 @@
         // For patterns that line up at the edge, may not want mirroring.
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
+        //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.hint(gl.GENERATE_MIPMAP_HINT, gl.NICEST);
         gl.generateMipmap(gl.TEXTURE_2D);
         // Only once the textures are loaded do we try and draw
@@ -312,7 +317,7 @@
 
     const helpstring =
           "&lt;space&gt;: scroll s/S: scale r/R: rrepeat t/T: utfact " +
-          "u/U: uxfact v/V: vytype x/X: symtype c/C: ctype f/F: ftype 1: hexagonal " +
+          "u/U: uxfact v/V: vytype a/A: stype c/C: ctype f/F: ftype 0: hexagonal " +
           "?: info !: mkurl"
 
     function keypressHandler(event) {
@@ -330,12 +335,16 @@
                     timelast = null;
                 }
                 break;
-            case '1': flags ^= 1; break;
-            case '2': flags ^= 2; break;
-            case '3': flags ^= 4; break;
-            case '4': flags ^= 8; break;
-            case '5': flags ^= 16; break;
-            //case '6': flags ^= 32; break;
+            case '0': flags ^= (1<<0); break;
+            case '1': flags ^= (1<<1); break;
+            case '2': flags ^= (1<<2); break;
+            case '3': flags ^= (1<<3); break;
+            case '4': flags ^= (1<<4); break;
+            case '5': flags ^= (1<<5); break;
+            case '6': flags ^= (1<<6); break;
+            case '7': flags ^= (1<<7); break;
+            case '8': flags ^= (1<<8); break;
+            case '9': flags ^= (1<<9); break;
             case 'p': P = (P+1)%NMAX; break;
             case 'P': P = (P+NMAX-1)%NMAX; break;
             case 'q': Q = (Q+1)%NMAX; break;
@@ -355,12 +364,12 @@
             case 'X': xoffset -= 0.1; break;
             case 'y': yoffset += 0.1; break;
             case 'Y': yoffset -= 0.1; break;
-            case 'a': symtype = (symtype+1)%nsymtypes; break;
-            case 'A': symtype = (symtype+nsymtypes-1)%nsymtypes; break;
-            case 'c': ctype = (ctype+1)%nctypes; break;
-            case 'C': ctype = (ctype+nctypes-1)%nctypes; break;
-            case 'f': ftype = (ftype+1)%nftypes; break;
-            case 'F': ftype = (ftype+nftypes-1)%nftypes; break;
+            case 'a': stype = (stype+1)%stypecount; break;
+            case 'A': stype = (stype+stypecount-1)%stypecount; break;
+            case 'c': ctype = (ctype+1)%ctypecount; break;
+            case 'C': ctype = (ctype+ctypecount-1)%ctypecount; break;
+            case 'f': ftype = (ftype+1)%ftypecount; break;
+            case 'F': ftype = (ftype+ftypecount-1)%ftypecount; break;
             case 'h': hplane = (hplane+1)%5; break;
             case 'H': hplane = (hplane+4)%5; break;
             case '?': showinfo = !showinfo; setinfo(); break;
@@ -374,7 +383,7 @@
         }
     }
     function makeflags() {
-        return flags + (P<<5) + (Q<<(5+8)) + (hplane<<(5+8+8));
+        return (flags & 0x1F) + (P<<5) + (Q<<(5+8)) + (hplane<<(5+8+8));
     }
     function initProgram(delta) {
         gl.useProgram(program);
@@ -439,76 +448,99 @@
         uoffset = (uoffset + utfact*delta) % 100;
         voffset = (voffset + vtfact*delta) % 100;
 
-        time = (time + delta) % 100;;
-        
-        gl.uniform4f(gl.getUniformLocation(program,"params1"),
+        if (flags & (1<<8)) clock0 += delta;
+        if (flags & (1<<9)) clock1 += delta;
+
+        // If left too long, we lose precision.
+        clock0 %= 3600;
+        clock1 %= 3600;
+        gl.uniform4f(gl.getUniformLocation(program, "params1"),
                      xscale, yscale, xoffset, yoffset);
-        gl.uniform4f(gl.getUniformLocation(program,"params2"),
-                     ulimit,vlimit,rrepeat,time);
+        gl.uniform4f(gl.getUniformLocation(program, "params2"),
+                     ulimit,vlimit,rrepeat,0);
+        gl.uniform2f(gl.getUniformLocation(program, "uClock"),
+                     clock0,clock1);
+        gl.uniform4i(gl.getUniformLocation(program, "iParams"),
+                     makeflags(),ftype, stype, ctype);
+        gl.uniform2i(gl.getUniformLocation(program, "uWindow"),
+                     gl.canvas.width, gl.canvas.height);
+        gl.uniform1f(gl.getUniformLocation(program, "uVScale"),
+                     gl.canvas.height/gl.canvas.width)
+        gl.uniform4f(gl.getUniformLocation(program, "ufact"),
+                     uscale,uxfact,uyfact,uoffset);
+        gl.uniform4f(gl.getUniformLocation(program, "vfact"),
+                     vscale,vxfact,vyfact,voffset);
 
-        let sUniform = gl.getUniformLocation(program, "uVScale")
-        gl.uniform1f(sUniform, gl.canvas.height/gl.canvas.width)
-        const ufactUniform = gl.getUniformLocation(program, "ufact");
-        gl.uniform4f(ufactUniform,uscale,uxfact,uyfact,uoffset);
-        const vfactUniform = gl.getUniformLocation(program, "vfact");
-        gl.uniform4f(vfactUniform,vscale,vxfact,vyfact,voffset);
+        {
+            // Specific to the "wallpaper" shader
+            // This should be in a shader-specific function
+            const ABUniform = gl.getUniformLocation(program, "AB");
+            const CDUniform = gl.getUniformLocation(program, "CD");
+            gl.uniform4f(ABUniform,Math.cos(0.1*clock0),Math.sin(0.11*clock0),1,0);
+            gl.uniform4f(CDUniform,1,0,0,0);
 
-        const ABUniform = gl.getUniformLocation(program, "AB");
-        const CDUniform = gl.getUniformLocation(program, "CD");
-        gl.uniform4f(ABUniform,Math.cos(0.1*time),Math.sin(0.11*time),1,0);
-        gl.uniform4f(CDUniform,1,0,0,0);
-
-        gl.uniform1i(gl.getUniformLocation(program, "uFlags"), makeflags());
-        gl.uniform1i(gl.getUniformLocation(program, "uType"), ftype);
-        
-        const aUniform = gl.getUniformLocation(program, "a");
-        switch(ctype) {
-        case 0:
-            gl.uniform4f(aUniform,0.25,0.25,0.25,0.25);
-            break;
-        case 1:
-            gl.uniform4f(aUniform,0.4,0.4,0.1,0.1);
-            break;
-        case 2:
-            gl.uniform4f(aUniform,1.0,0.0,0.0,0.0);
-            break;
-        case 3:
-            gl.uniform4f(aUniform,
-                         0.4*Math.sin(0.1*time), 0.4*Math.cos(0.1*time),
-                         0.1*Math.sin(0.11*time),0.1*Math.cos(0.11*time));
-            break;
-        default:
-            console.assert(0);
-        }
-
-        const mn0Uniform = gl.getUniformLocation(program, "mn0");
-        const mn1Uniform = gl.getUniformLocation(program, "mn1");
-        switch(symtype) {
-            // Should use an array for this.
-        case 0:
-            gl.uniform4i(mn0Uniform,0,1,1,0); gl.uniform4i(mn1Uniform,1,2,-2,1); // Generic rotation
-            break;
-        case 1:
-            gl.uniform4i(mn0Uniform,0,1,1,0); gl.uniform4i(mn1Uniform,1,2,2,1); // p31m
-            break;
-        case 2:
-            gl.uniform4i(mn0Uniform,0,1,-1,0); gl.uniform4i(mn1Uniform,1,2,-2,-1); // p3m1
-            break;
-        case 3:
-            gl.uniform4i(mn0Uniform,0,1,0,-1); gl.uniform4i(mn1Uniform,1,2,-1,-2); // p6
-            break;
-        case 4:
-            gl.uniform4i(mn0Uniform,0,1,0,-1); gl.uniform4i(mn1Uniform,1,0,-1,0); // p6m
-            break;
-        default:
-            console.log(symtype);
-            console.assert(0);
+            const aUniform = gl.getUniformLocation(program, "a");
+            if (aUniform) {
+                switch(ctype) {
+                case 0:
+                    gl.uniform4f(aUniform,0.25,0.25,0.25,0.25);
+                    break;
+                case 1:
+                    gl.uniform4f(aUniform,0.4,0.4,0.1,0.1);
+                    break;
+                case 2:
+                    gl.uniform4f(aUniform,1.0,0.0,0.0,0.0);
+                    break;
+                case 3:
+                    gl.uniform4f(aUniform,
+                                 0.4*Math.sin(0.1*clock0), 0.4*Math.cos(0.1*clock0),
+                                 0.1*Math.sin(0.11*clock0),0.1*Math.cos(0.11*clock0));
+                    break;
+                default:
+                    console.assert(0);
+                }
+            }
+            const mn0Uniform = gl.getUniformLocation(program, "mn0");
+            const mn1Uniform = gl.getUniformLocation(program, "mn1");
+            if (mn0Uniform || mn1Uniform) {
+                switch(stype) {
+                    // Should use an array for this.
+                case 0:
+                    gl.uniform4i(mn0Uniform,0,1,1,0); gl.uniform4i(mn1Uniform,1,2,-2,1); // Generic rotation
+                    break;
+                case 1:
+                    gl.uniform4i(mn0Uniform,0,1,1,0); gl.uniform4i(mn1Uniform,1,2,2,1); // p31m
+                    break;
+                case 2:
+                    gl.uniform4i(mn0Uniform,0,1,-1,0); gl.uniform4i(mn1Uniform,1,2,-2,-1); // p3m1
+                    break;
+                case 3:
+                    gl.uniform4i(mn0Uniform,0,1,0,-1); gl.uniform4i(mn1Uniform,1,2,-1,-2); // p6
+                    break;
+                case 4:
+                    gl.uniform4i(mn0Uniform,0,1,0,-1); gl.uniform4i(mn1Uniform,1,0,-1,0); // p6m
+                    break;
+                default:
+                    console.log(stype);
+                    console.assert(0);
+                }
+            }
         }
     }
 
     function renderScene(delta) {
         initProgram(delta);
+        framenumber++;
+        if (progressive) {
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+            gl.blendEquation(gl.FUNC_ADD);
+            gl.uniform1f(gl.getUniformLocation(program,"uAlpha"), 1/framenumber);
+        }
+        gl.uniform1i(gl.getUniformLocation(program, "uSeed"), framenumber);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        let err = gl.getError();
+        if (err) console.log("GL Error: ", err);
     }
 
     // Draw the scene.
@@ -530,7 +562,7 @@
         if (showinfo) {
             let s = "";
             s += "Framerate: " + ((1000/frametime)|0);
-            s += " symtype: " + symtype;
+            s += " stype: " + stype;
             s += " ctype: " + ctype;
             s += " ftype: " + ftype;
             s += " scale: " + scale.toFixed(2);
@@ -538,6 +570,7 @@
             s += " uxfact: " + uxfact.toFixed(2);
             s += " vyfact: " + vyfact.toFixed(2);
             s += " utfact: " + utfact.toFixed(2);
+            s += " frame: " + framenumber;
             info.innerHTML = s;
         }
         
@@ -549,9 +582,10 @@
         if (width != canvas.width || height != canvas.height) {
             canvas.width = width;
             canvas.height = height;
+            framenumber = 0;
         }
         gl.viewport(0,0,canvas.width,canvas.height);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        if (!progressive) gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         renderScene(delta/1000); // Time since last render in seconds
     }
 
@@ -559,10 +593,10 @@
     function mkurl() {
         let s = "?";
         s += "img=" + imgname;
-        if (hexagonal) s += "&hexagonal";
+        if (flags & 1) s += "&hexagonal";
         else s += "&square";
         if (scale != 2.0) s += "&scale=" + scale.toFixed(2);
-        if (symtype != 0) s += "&symtype=" + symtype;
+        if (stype != 0) s += "&stype=" + stype;
         if (ctype != 0) s += "&ctype=" + ctype;
         if (ftype != 0) s += "&ftype=" + ftype;
         if (rrepeat != 0) s += "&rrepeat=" + rrepeat.toFixed(2);
@@ -589,7 +623,7 @@
         }
     }
         
-    window.runoncanvas = function(canvas,vsfile,fsfile) {
+    window.runoncanvas = function(canvas,config) {
         help.innerHTML = helpstring;
         setinfo();
         var options = window.location.search;
@@ -606,12 +640,14 @@
                     flags &= ~1;
                 } else if (matches = arg.match(/^scale=([\d.-]+)$/)) {
                     scale = Number(matches[1]);
+                } else if (matches = arg.match(/^stype=([\d]+)$/)) {
+                    stype = Number(matches[1])%stypecount;
                 } else if (matches = arg.match(/^symtype=([\d]+)$/)) {
-                    symtype = Number(matches[1])%nsymtypes;
+                    stype = Number(matches[1])%stypecount;
                 } else if (matches = arg.match(/^ctype=([\d]+)$/)) {
-                    ctype = Number(matches[1])%nctypes;
+                    ctype = Number(matches[1])%ctypecount;
                 } else if (matches = arg.match(/^ftype=([\d]+)$/)) {
-                    ftype = Number(matches[1])%nftypes;
+                    ftype = Number(matches[1])%ftypecount;
                 } else if (matches = arg.match(/^rrepeat=([\d.-]+)$/)) {
                     rrepeat = Number(matches[1]);
                 } else if (matches = arg.match(/^uxfact=([\d.-]+)$/)) {
@@ -640,22 +676,41 @@
             });
         }
 
-        gl = initWebGL(canvas);      // Initialize the GL context
+        let attributes = {
+            //preserveDrawingBuffer: true,
+            //alpha: false,
+            //premultipliedAlpha: false
+        }
+        if (config.progressive) {
+            attributes.preserveDrawingBuffer = true;
+            attributes.alpha = false;
+            progressive = true;
+        }
+        if (config.stypecount) {
+            stypecount = config.stypecount;
+        }
+        if (config.ctypecount) {
+            ctypecount = config.ctypecount;
+        }
+        gl = initWebGL(canvas,attributes);      // Initialize the GL context
         // Only continue if WebGL is available and working
         if (gl) {
+            var isFragDepthAvailable = gl.getExtension("EXT_frag_depth");
+            console.log(isFragDepthAvailable);
             gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Set clear color to black and fully opaque
             initTexture("../images/" + imgname, gl.RGBA, gl.TEXTURE1);
+            initTexture("../images/noise.png", gl.RGBA, gl.TEXTURE2);
             cubeTexture = gl.createTexture();
-            //let dir = "../images/skybox/";
-            let dir = "../images/MilkyWay/";
+            let dir = "../images/skybox/";
+            //let dir = "../images/MilkyWay/";
             initCubeTexture(dir + "nx.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_NEGATIVE_X);
             initCubeTexture(dir + "ny.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_NEGATIVE_Y);
             initCubeTexture(dir + "nz.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_NEGATIVE_Z);
             initCubeTexture(dir + "px.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_POSITIVE_X);
             initCubeTexture(dir + "py.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_POSITIVE_Y);
             initCubeTexture(dir + "pz.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_POSITIVE_Z);
-            vertexshader = initshader(vsfile);
-            fragmentshader = initshader(fsfile);
+            vertexshader = initshader(config.vsfile);
+            fragmentshader = initshader(config.fsfile);
             setTimeout(function(){
                 if (!started && !error) {
                     alert("Page load timed out: " + resourcesLoading);

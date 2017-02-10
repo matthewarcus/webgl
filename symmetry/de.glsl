@@ -24,28 +24,66 @@
 // taken from Abdelaziz Nait Merzouk's Fragmentarium shaders.
 // https://plus.google.com/114982179961753756261
 
-precision highp float;
-
 //#define BENCHMARK
 //#define FAST
-#define QUALITY
+//#define QUALITY
+
+//#extension GL_EXT_frag_depth : enable
+precision highp float;
 
 uniform vec4 params1;
 uniform vec4 params2;
-uniform int uType;
-uniform int uFlags;
+uniform ivec4 iParams;
+uniform vec2 uClock;
+uniform sampler2D uSampler;
+uniform sampler2D uNoise;
 uniform samplerCube uCubeMap;
 varying vec2 vTextureCoord;
 
+float clock0;
+float clock1;
+float coffset;
+int ftype;
+int stype;
+int ctype;
+
 // Things that should be uniforms
 //const vec3 defaultColor = vec3(1.0,0.5,0.0);
-//const vec3 defaultColor = vec3(0.8,1.0,0.8);
-const vec3 defaultColor = vec3(0.2,0.1,0.1);
+const vec3 defaultColor = vec3(0.8,1.0,0.8);
+//const vec3 defaultColor = vec3(0.2,0.1,0.1);
 const vec3 light = normalize(vec3(0.0,1.0,1.0));
+
+bool colorswap = false;
+bool applyGamma = false;
+bool addNoise = false;
+
+const float two31 = pow(2.0,31.0);
+int seed = 0;
+float frand() {
+  // 32-bit RNG from Numerical Recipes
+  seed *= 1664525;
+  seed += 1013904223;
+  return abs(float(seed))/two31;
+  //return mod(abs(float(seed)),65000.0)/65000.0; // Huh?
+}
+
+int mix(int seed, int n) {
+  seed += n;
+  seed += seed*(8*1024);
+  seed += seed/(128*1024);
+  seed += seed*32;
+  seed += seed/(256*256);
+  seed += seed*2;
+  seed += seed/512;
+  seed += seed*2;
+  return seed;
+}
 
 const float phi = 1.618033;
 const float phi2 = phi*phi;
+const float phi4 = phi2*phi2;
 
+// Two dimensional perpendicular distance
 float dist(float x0, float y0, float x1, float y1, float x2, float y2) {
    float a = abs((y2-y1)*x0 - (x2 - x1)*y0 + x2*y1 - y2*x1);
    float b = sqrt((y2-y1)*(y2-y1)+(x2-x1)*(x2-x1));
@@ -70,16 +108,42 @@ mat4 qmat(float p0, float p1, float p2, float p3) {
               p3,-p2,p1,p0);
 }
 
-float Sphere(float x, float y, float z, float w) {
-  return x*x + y*y + z*z + w*w - 4.0;
+float Sphere(vec4 p) {
+  // Well, a quadric of some sort, depending
+  // on the projection.
+  //
+#if 1
+  //vec4 a = vec4(1.0,cos(0.3*clock1),cos(0.2*clock1),-1.0);
+  vec4 a = vec4(1.0,1.0,1.0,-1.0);
+#elif 1
+  mat4 a = mat4(1.0,0.0,0.0,0.0,
+                0.0,cos(0.3*clock1),0.0,0.0,
+                0.0,0.0,cos(0.2*clock1),0.0,
+                0.0,0.0,0.0,-1.0);
+#else
+  float t = 0.2*clock1;
+  float cost = cos(t), sint = sin(t);
+  mat4 a = mat4(1.0,0.0,0.0,0.0,
+                0.0,1.0,0.0,0.0,
+                0.0,0.0,cost,-sint,
+                0.0,0.0,sint,-cost);
+#endif
+  return dot(a*p,p);
+  //float x = p.x; float y = p.y;
+  //float z = p.z; float w = p.w;
+  //return a*x*x + b*y*y + c*z*z - d*w*w;
 }
 
-float Clebsch(float x, float y, float z, float w) {
+float Clebsch(vec4 p) {
+  float x = p.x; float y = p.y;
+  float z = p.z; float w = p.w;
   float t = x+y+z+w;
   return x*x*x + y*y*y + z*z*z + w*w*w - t*t*t;
 }
 
-float Cayley(float x, float y, float z, float w) {
+float Cayley(vec4 p) {
+  float x = p.x; float y = p.y;
+  float z = p.z; float w = p.w;
   return w*x*y + x*y*z + y*z*w + z*w*x;
 }
 
@@ -117,22 +181,30 @@ float T18(float x) {
   return 2.0*x*T17(x) - T16(x);
 }
 
-float Chmutov10(float x, float y, float z, float w) {
-   return T10(x)+T10(y)+T10(z)+1.0;
+float Chmutov10(vec4 p) {
+  float x = p.x; float y = p.y;
+  float z = p.z; float w = p.w;
+  return T10(x)+T10(y)+T10(z)+1.0;
 }
 
-float Chmutov14(float x, float y, float z, float w) {
+float Chmutov14(vec4 p) {
+  float x = p.x; float y = p.y;
+  float z = p.z; float w = p.w;
   return T14(x)+T14(y)+T14(z)+1.0;
 }
 
-float Chmutov18(float x, float y, float z, float w) {
-   return T18(x)+T18(y)+T18(z)+1.0;
+float Chmutov18(vec4 p) {
+  float x = p.x; float y = p.y;
+  float z = p.z; float w = p.w;
+  return T18(x)+T18(y)+T18(z)+1.0;
 }
 
 // T9(x) + T9(y) + T9(z) + 1 = 0 where T9(x) =
 // 256x 9 − 576x 7 + 432x 5 − 120x 3 + 9x
 
-float Chmutov9(float x, float y, float z, float w) {
+float Chmutov9(vec4 p) {
+  float x = p.x; float y = p.y;
+  float z = p.z; float w = p.w;
    return T9(x)+T9(y)+T9(z)+1.0;
 }
 // T6(x) + T6(y) + T6(z) = 0 where T6(x) =
@@ -142,19 +214,21 @@ float T6(float x) {
    return -1.0+x*x*(18.0+x*x*(-48.0+x*x*32.0));
 }
 
-float Chmutov6(float x, float y, float z, float w) {
-   return T6(x)+T6(y)+T6(z)+1.0;
+float Chmutov6(vec4 p) {
+  float x = p.x; float y = p.y;
+  float z = p.z; float w = p.w;
+  return T6(x)+T6(y)+T6(z)+1.0;
 }
 
 // The following functions for various surfaces are
 // taken from Abdelaziz Nait Merzouk's Fragmentarium
 // shaders.
 
-float Barth(float x, float y, float z, float w) {
-  float x2 = x*x;
-  float y2 = y*y;
-  float z2 = z*z;
-  float w2 = w*w;
+float Barth(vec4 p) {
+  float x = p.x; float y = p.y;
+  float z = p.z; float w = p.w;
+  float x2 = x*x; float y2 = y*y;
+  float z2 = z*z; float w2 = w*w;
   float A = 4.0*(phi2*x2-y2)*(phi2*y2-z2)*(phi2*z2-x2);
   float B = x2 + y2 + z2 - w2;
   return (1.0+2.0*phi)*w2*B*B - A;
@@ -169,7 +243,7 @@ float Labs7(vec4 p){
    float a4= -1.1881659380714800;//(-8./7.*a+8./49.)*a-8./7.; 
    float a5= 51.9426145948147000;//(49.*a-7.)*a+50.;
 
-   float	r2= dot(p.xy,p.xy);
+   float r2= dot(p.xy,p.xy);
    vec4 p2=p*p;
    float U = (p.z+p.w)*r2+(a1*p.z+a2*p.w)*p2.z+(a3*p.z+a4*p.w)*p2.w;
    U = (p.z+a5*p.w)*U*U;
@@ -178,7 +252,11 @@ float Labs7(vec4 p){
    return U-P;
 }
 
-float Labs(float x, float y, float z, float w) {
+float Labs(vec4 p) {
+  float x = p.x;
+  float y = p.y;
+  float z = p.z;
+  float w = p.w;
   //float t = z; z = y; y = t;
   //float a = -0.140106854987125;//the real root of 7*a^3+7*a+1=0
   //Constants
@@ -196,7 +274,11 @@ float Labs(float x, float y, float z, float w) {
   return U-P;
 }
 
-float Endrass8(float x, float y, float z, float w){
+float Endrass8(vec4 p){
+  float x = p.x;
+  float y = p.y;
+  float z = p.z;
+  float w = p.w;
   float x2 = x*x,y2 = y*y,z2 = z*z,w2 = w*w;
   float r2 = x2+y2;
   float U = 64.0*(x2-w2)*(y2-w2)*((x+y)*(x+y)-2.0*w2)*((x-y)*(x-y)-2.0*w2);
@@ -205,77 +287,82 @@ float Endrass8(float x, float y, float z, float w){
   return V*V-U;
 }
 
-float Endrass_8(float x, float y, float z, float w){
-  vec4 p = vec4(x,y,z,w);
+float Endrass_8(vec4 p){
   vec4 p2 = p*p;
-	float r2 = dot(p.xy,p.xy);
-	float U = 64.*(p2.x-p2.w)*(p2.y-p2.w)*((p.x+p.y)*(p.x+p.y)-2.*p2.w)*((p.x-p.y)*(p.x-p.y)-2.*p2.w);
-	float V = -4.*(1.-sqrt(2.))*r2*r2+(8.*(2.-sqrt(2.))*p2.z+2.*(2.-7.*sqrt(2.))*p2.w)*r2;
-	V = V + p2.z*(-16.*p2.z+8.*(1.+2.*sqrt(2.))*p2.w) - (1.-12.*sqrt(2.))*p2.w*p2.w;
-	return V*V-U;
+  float r2 = dot(p.xy,p.xy);
+  float U = 64.*(p2.x-p2.w)*(p2.y-p2.w)*((p.x+p.y)*(p.x+p.y)-2.*p2.w)*((p.x-p.y)*(p.x-p.y)-2.*p2.w);
+  float V = -4.*(1.-sqrt(2.))*r2*r2+(8.*(2.-sqrt(2.))*p2.z+2.*(2.-7.*sqrt(2.))*p2.w)*r2;
+  V = V + p2.z*(-16.*p2.z+8.*(1.+2.*sqrt(2.))*p2.w) - (1.-12.*sqrt(2.))*p2.w*p2.w;
+  return V*V-U;
 }
 
-#define PHI  1.618034
-#define PHI2 2.618034
-#define PHI4 6.854102
-
-float Barth10(float x, float y, float z, float w){//decic
-  vec4 P = vec4(x,y,z,w);
-  float r2 = dot(P.xyz,P.xyz);
-  vec4 P2 = P*P;
-  float r4 = dot(P2.xyz,P2.xyz);
-  vec4 P4 = P2*P2;
-  return (8.0*(P2.x-PHI4*P2.y)*(P2.y-PHI4*P2.z)*(P2.z-PHI4*P2.x)*(r4-2.0*((P.x*P.y)*(P.x*P.y)+(P.x*P.z)*(P.x*P.z)+(P.y*P.z)*(P.y*P.z)))+(3.0+5.0*PHI)*(r2-P2.w)*(r2-P2.w)*(r2-(2.0-PHI)*P2.w)*(r2-(2.0-PHI)*P2.w)*P2.w);
+float Barth10(vec4 p){//decic
+  float r2 = dot(p.xyz,p.xyz);
+  vec4 p2 = p*p;
+  float r4 = dot(p2.xyz,p2.xyz);
+  vec4 p4 = p2*p2;
+  return (8.0*(p2.x-phi4*p2.y)*(p2.y-phi4*p2.z)*(p2.z-phi4*p2.x)*(r4-2.0*((p.x*p.y)*(p.x*p.y)+(p.x*p.z)*(p.x*p.z)+(p.y*p.z)*(p.y*p.z)))+(3.0+5.0*phi)*(r2-p2.w)*(r2-p2.w)*(r2-(2.0-phi)*p2.w)*(r2-(2.0-phi)*p2.w)*p2.w);
 }
 
 //   Dodecics
-float Sarti12(float x, float y, float z, float w){
-  vec4 p = vec4(x,y,z,w);
-	vec4 p2 = p*p;
-	vec4 p4 = p2*p2;
-	float l1 = dot(p2,p2);
-	float l2 = p2.x*p2.y+p2.z*p2.w;
-	float l3 = p2.x*p2.z+p2.y*p2.w;
-	float l4 = p2.y*p2.z+p2.x*p2.w;
-	float l5 = p.x*p.y*p.z*p.w;
-	float s10 = l1*(l2*l3+l2*l4+l3*l4), s11 = l1*l1*(l2+l3+l4);
-	float s12=l1*(l2*l2+l3*l3+l4*l4),    s51=l5*l5*(l2+l3+l4),  s234=l2*l2*l2+l3*l3*l3+l4*l4*l4;
-	float s23p=l2*(l2+l3)*l3,   s23m=l2*(l2-l3)*l3; 
-	float s34p=l3*(l3+l4)*l4,       s34m=l3*(l3-l4)*l4; 
-	float s42p=l4*(l4+l2)*l2,       s42m=l4*(l4-l2)*l2;
-	float Q12=dot(p,p); Q12=Q12*Q12*Q12; Q12=Q12*Q12; 
-	float S12=33.*sqrt(5.)*(s23m+s34m+s42m)+19.*(s23p+s34p+s42p)+10.*s234-14.*s10+2.*s11-6.*s12-352.*s51+336.*l5*l5*l1+48.*l2*l3*l4;
-	return 22.*Q12-243.*S12;
+float Sarti12(vec4 p){
+  vec4 p2 = p*p;
+  vec4 p4 = p2*p2;
+  float l1 = dot(p2,p2);
+  float l2 = p2.x*p2.y+p2.z*p2.w;
+  float l3 = p2.x*p2.z+p2.y*p2.w;
+  float l4 = p2.y*p2.z+p2.x*p2.w;
+  float l5 = p.x*p.y*p.z*p.w;
+  float s10 = l1*(l2*l3+l2*l4+l3*l4), s11 = l1*l1*(l2+l3+l4);
+  float s12=l1*(l2*l2+l3*l3+l4*l4),    s51=l5*l5*(l2+l3+l4),  s234=l2*l2*l2+l3*l3*l3+l4*l4*l4;
+  float s23p=l2*(l2+l3)*l3,   s23m=l2*(l2-l3)*l3; 
+  float s34p=l3*(l3+l4)*l4,       s34m=l3*(l3-l4)*l4; 
+  float s42p=l4*(l4+l2)*l2,       s42m=l4*(l4-l2)*l2;
+  float Q12=dot(p,p); Q12=Q12*Q12*Q12; Q12=Q12*Q12; 
+  float S12=33.*sqrt(5.)*(s23m+s34m+s42m)+19.*(s23p+s34p+s42p)+10.*s234-14.*s10+2.*s11-6.*s12-352.*s51+336.*l5*l5*l1+48.*l2*l3*l4;
+  return 22.*Q12-243.*S12;
 }
 
-float Fun(float x, float y, float z, float w) {
-#if defined BENCHMARK
-  return Barth10(x,y,z,w);
-  //return Labs7(vec4(x,y,z,w));
-#else
-  float time = params2[3];
-  float k = 0.1*time;
+vec4 ctransform(vec4 p, float offset) {
+  float w = cos(offset)*p.w - sin(offset)*p.z;
+  float z = sin(offset)*p.w + cos(offset)*p.z;
+  p.w = w; p.z = z;
+  return p;
+}
 
-  // Can't decide between vectors and coordinates.
-  vec4 p = vec4(x,y,z,w);
+vec4 transform(vec4 p) {
+  // This should be done in the driver.
+  float theta = 0.1*clock0;
+  float x = cos(theta)*p.x - sin(theta)*p.z;
+  float z = sin(theta)*p.x + cos(theta)*p.z;
+  p.x = x; p.z = z;
+  float k = 0.1*clock1;
   float cosk = cos(k);
   float sink = sin(k);
   mat4 m = qmat(cosk,-sink,0.0,0.0);
   p = m*p;
-  x = p.x;
-  y = p.y;
-  z = p.z;
-  w = p.w;
 
-  if (uType == 0) return Labs(x,y,z,w);
-  else if (uType == 1) return Barth(x,y,z,w);
-  else if (uType == 2) return Endrass8(x,y,z,w);
-  else if (uType == 3) return Barth10(x,y,z,w);
-  else if (uType == 4) return Sarti12(x,y,z,w);
-  else if (uType == 5) return Chmutov10(x,y,z,w);
-  else if (uType == 6) return Endrass_8(x,y,z,w);
-  else if (uType == 7) return Chmutov14(x,y,z,w);
-  else return Sphere(x,y,z,w);
+  return p;
+}
+
+float Fun(float x, float y, float z, float w) {
+#if defined BENCHMARK
+  //return Barth10(x,y,z,w);
+  return Labs(vec4(x,y,z,w));
+#else
+  vec4 p = vec4(x,y,z,w);
+  p = transform(p);
+  //return Sphere(p);
+  if (stype == 0) return Labs(p);
+  else if (stype == 1) return Barth(p);
+  else if (stype == 2) return Endrass8(p);
+  else if (stype == 3) return Barth10(p);
+  else if (stype == 4) return Sarti12(p);
+  else if (stype == 5) return Chmutov10(p);
+  else if (stype == 6) return Endrass_8(p);
+  else if (stype == 7) return Chmutov14(p);
+  else if (stype == 8) return Clebsch(p);
+  else return Sphere(p);
 #endif  
 }
 
@@ -284,6 +371,81 @@ bool nextbit(inout int n) {
   bool result = bool(n-2*n0);
   n = n0;
   return result;
+}
+
+// Not quite sure what's going on here. I think
+// we have round-towards-zero. We just want a
+// hash value though.
+int befuddle(float x) {
+  if (x < 0.0) return 2*int(-x)+2;
+  else return 2*int(x)+1;
+}
+
+vec3 selectColor(vec4 q, vec3 eye, vec3 n) {
+  if (ctype == 0) {
+    return defaultColor;
+  }
+  if (ctype == 1) {
+    return textureCube(uCubeMap,reflect(eye,n)).rgb;
+  }
+  // Get projective coordinates
+  q = transform(q);
+  if (colorswap) q = ctransform(q, 1.570796);
+  else if (coffset != 0.0) q = ctransform(q,coffset);
+
+  float x = q.x, y = q.y, z = q.z, w = q.w;
+  if (ctype == 2) {
+    // Octamap
+    vec3 c = normalize(vec3(1.0,1.0,1.0));
+    vec3 u = normalize(cross(c,vec3(0.0,1.0,0.0)));
+    vec3 v = normalize(cross(c,u));
+    // Taking abs of all coordinates reflects everything
+    // into main octant.
+    vec3 p = vec3(abs(x/w),abs(y/w),abs(z/w));
+    //vec3 p = normalize(vec3(abs(x),abs(y),abs(z)));
+    p /= 1.0/dot(p,c); // Central projection
+    vec3 col = texture2D(uSampler,vec2(dot(p,u),dot(p,v))).rgb;
+    if (addNoise) {
+      col *= texture2D(uNoise,vec2(dot(p,u),dot(p,v))).rgb;
+    }
+    return col;
+  }
+  if (ctype == 3) {
+    return textureCube(uCubeMap,normalize(vec3(x/w,y/w,z/w))).rgb;
+  }
+  // Use a grid
+  float R = 10.0;
+  float gridx = x/w*R;
+  float gridy = y/w*R;
+  float gridz = x/w*R;
+  if (ctype == 4) {
+    return vec3(mod(x/w*R,1.0),
+                mod(y/w*R,1.0),
+                mod(z/w*R,1.0));
+  }
+  if (ctype == 5) {
+    float K = 1.0;
+    return vec3 (abs(0.5*sin(K*x/w)+0.5),
+                 abs(0.5*sin(K*y/w)+0.5),
+                 abs(0.5*sin(K*z/w)+0.5));
+  }
+  seed = 12345678;
+  seed = mix(seed,befuddle(gridx));
+  seed = mix(seed,befuddle(gridy));
+  seed = mix(seed,befuddle(gridz));
+  if (ctype == 6) {
+    return vec3(frand(),frand(),frand());
+  }
+  // Position within grid cube
+  float fgridx = 2.0*fract(gridx)-1.0;
+  float fgridy = 2.0*fract(gridy)-1.0;
+  float fgridz = 2.0*fract(gridz)-1.0;
+    
+  float gridr = sqrt(fgridx*fgridx +
+                     fgridy*fgridy +
+                     fgridz*fgridz);
+  gridr = clamp(0.8*gridr,0.0,1.0);
+  return gridr*vec3(.2,.2,.2) + (1.0 - gridr)*vec3(frand(),frand(),frand());
 }
 
 // Solution parameters.
@@ -304,6 +466,7 @@ const float initstep = 1.0;
 const float camera = 10.0;
 const float radius = 6.0; // Restrict view to this (unused)
 const float horizon = 20.0; // limit on k
+
 void solve(float x0, float y0, float z0,
            float a, float b, float c) {
   float k0 = 0.0, k1;
@@ -362,52 +525,73 @@ void solve(float x0, float y0, float z0,
       }
     }
   }
-  vec3 eye = vec3(a,b,c);
   if (!found /*|| x*x+y*y+z*z > radius*radius*/) {
     //gl_FragColor = vec4(textureCube(uCubeMap,eye).rgb,1.0);
     discard;
   }
+  vec3 eye = vec3(a,b,c);
   // Compute gradient & normal
   float eps = 1e-3;
 #if 1
+  //vec3 n = vec3(Fun(x+eps,y,z,w),Fun(x,y+eps,z,w),Fun(x,y,z+eps,w)) - a0;
   vec3 n = vec3(Fun(x0+k0*a+eps,y0+k0*b,z0+k0*c,1.0),
                 Fun(x0+k0*a,y0+k0*b+eps,z0+k0*c,1.0),
                 Fun(x0+k0*a,y0+k0*b,z0+k0*c+eps,1.0)) - a0;
 #else
-  vec3 n = vec3(Fun(x0+k0*a+eps,y0+k0*b,z0+k0*c,1.0) - Fun(x0+k0*a-eps,y0+k0*b,z0+k0*c,1.0),
-                Fun(x0+k0*a,y0+k0*b+eps,z0+k0*c,1.0) - Fun(x0+k0*a,y0+k0*b-eps,z0+k0*c,1.0),
-                Fun(x0+k0*a,y0+k0*b,z0+k0*c+eps,1.0) - Fun(x0+k0*a,y0+k0*b,z0+k0*c-eps,1.0));
+  vec3 n = vec3(Fun(x+eps,y,z,w) - Fun(x-eps,y,z,w),
+                Fun(x,y+eps,z,w) - Fun(x,y-eps,z,w),
+                Fun(x,y,z+eps,w) - Fun(x,y,z-eps,w));
 #endif
   float grad = abs(length(n));
   n = normalize(n);
   float ambient = 0.6;
   float diffuse = 1.0-ambient;
 
-  int flags = uFlags;
-  bool skymap = nextbit(flags);
-
-  vec3 baseColor;
-  if (skymap) {
-    baseColor = textureCube(uCubeMap,reflect(eye,n)).rgb;
-  } else {
-    baseColor = defaultColor;
-  }
-  //baseColor.r = min(5.0*grad,1.0);
+  vec3 baseColor = selectColor(vec4(x,y,z,w),eye,n);
+  // Point normal towards eye
   if (dot(eye,n) > 0.0) n *= -1.0;
   vec3 color = baseColor.xyz*(ambient+(1.0-ambient)*dot(light,n));
   float specular = pow(max(0.0,dot(reflect(light,n),eye)),4.0);
   color += 0.7*specular*vec3(1.0,1.0,1.0);
+  if (applyGamma) color = sqrt(color);
+  //color *= 0.5+0.5*frand();
   gl_FragColor = vec4(color,1.0);
+  //gl_FragDepthEXT = 0.5;
 }
 
 void main(void) {
-  float time = params2[3];
+  int flags = iParams[0];
+  nextbit(flags);
+  colorswap = nextbit(flags);
+  applyGamma = nextbit(flags);
+  addNoise = nextbit(flags);
+
+  ftype = iParams[1];
+  stype = iParams[2];
+  ctype = iParams[3];
+
+  clock0 = uClock[0];
+  clock1 = uClock[1];
+  coffset = params2[2]; //rrepeat
+
   float xscale = params1[0];       // Width multiplier
   float yscale = params1[1];       // Height multiplier
-  float x0 = 0.0, y0 = 0.0, z0 = camera;
   float x = 2.0*(vTextureCoord[0]-0.5)*xscale; // + 2.0*xoffset;
   float y = 2.0*(vTextureCoord[1]-0.5)*yscale; // + 2.0*yoffset;
   float z = 0.0;
+
+  int i = int(gl_FragCoord.x);
+  int j = int(gl_FragCoord.y);
+#if 0
+  seed = int(gl_FragCoord.x*100.0 + gl_FragCoord.y);
+  //seed += int(1234.0*gl_FragCoord.x);
+  //seed += int(4567.0*gl_FragCoord.y);
+  seed += int(1000000.0*vTextureCoord.x);
+  seed += int(1000000.0*vTextureCoord.y);
+  vec4 noise = texture2D(uNoise, vTextureCoord);
+  seed += int(1000000.0*noise.r);
+#endif
+  float x0 = 0.0, y0 = 0.0, z0 = camera;
   float a = x-x0;
   float b = y-y0;
   float c = z-z0;

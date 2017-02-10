@@ -11,12 +11,11 @@
     <script type="text/javascript">
       window.onload = function () {
       let config = {
+      progressive: true,
       vsfile: "basicvertexshader.glsl",
-      fsfile: "de.glsl",
-      ctypecount: 8,
-      stypecount: 9
+      fsfile: "explicit.glsl"
       }
-      runoncanvas(glcanvas, config);
+      runoncanvas(glcanvas,config);
       }
     </script>      
     <div id="info"></div>

@@ -26,7 +26,7 @@ precision highp int;
 uniform sampler2D uSampler; // Texture sampler
 uniform vec4 ufact, vfact;
 uniform vec4 params1, params2;
-uniform int uFlags; // Misc flags & settings
+uniform ivec4 iParams; // Misc flags & settings
 
 varying vec2 vTextureCoord; // Could use gl_FragCoord maybe?
 
@@ -186,7 +186,7 @@ void main(void) {
 
   // We are using 5+8+8+4 = 25 bits for main options
   // Hopefully we will get 32 bit integers
-  int flags = uFlags; //1 + 2*(0 + 2*(1 + 2*(0 + 2*(0 + 2*(4 + 16*(4 + 16*(1 + 16*(0))))))));
+  int flags = iParams[0]; //1 + 2*(0 + 2*(1 + 2*(0 + 2*(0 + 2*(4 + 16*(4 + 16*(1 + 16*(0))))))));
 
   bool hyperbolic = nextbit(flags);
   bool doubleup = nextbit(flags);
