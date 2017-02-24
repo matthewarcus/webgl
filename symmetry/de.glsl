@@ -26,7 +26,7 @@
 
 //#define BENCHMARK
 //#define FAST
-//#define QUALITY
+#define QUALITY
 
 //#extension GL_EXT_frag_depth : enable
 precision highp float;
@@ -35,6 +35,7 @@ uniform vec4 params1;
 uniform vec4 params2;
 uniform ivec4 iParams;
 uniform vec2 uClock;
+uniform ivec2 uWindow;
 uniform sampler2D uSampler;
 uniform sampler2D uNoise;
 uniform samplerCube uCubeMap;
@@ -52,9 +53,11 @@ int ctype;
 const vec3 defaultColor = vec3(0.8,1.0,0.8);
 //const vec3 defaultColor = vec3(0.2,0.1,0.1);
 const vec3 light = normalize(vec3(0.0,1.0,1.0));
+const float ambient = 0.6;
+const float diffuse = 1.0-ambient;
+bool applyGamma = false;
 
 bool colorswap = false;
-bool applyGamma = false;
 bool addNoise = false;
 
 const float two31 = pow(2.0,31.0);
@@ -64,7 +67,6 @@ float frand() {
   seed *= 1664525;
   seed += 1013904223;
   return abs(float(seed))/two31;
-  //return mod(abs(float(seed)),65000.0)/65000.0; // Huh?
 }
 
 int mix(int seed, int n) {
@@ -106,6 +108,10 @@ mat4 qmat(float p0, float p1, float p2, float p3) {
               p1,p0,-p3,p2,
               p2,p3,p0,-p1,
               p3,-p2,p1,p0);
+}
+
+float Borg(vec4 p) {
+  return sin(p.x*p.y)+sin(p.y*p.z)+sin(p.x*p.z);
 }
 
 float Sphere(vec4 p) {
@@ -323,6 +329,14 @@ float Sarti12(vec4 p){
   return 22.*Q12-243.*S12;
 }
 
+float Roman(vec4 p) {
+  float r = 2.0;
+  float x = p.x, y = p.y, z = p.z;
+  float eps = 0.0; //1e-4; // Fudge factor!
+  // Use swizzle?
+  return x*x*y*y + y*y*z*z + z*z*x*x + r*r*x*y*z - eps;
+}
+
 vec4 ctransform(vec4 p, float offset) {
   float w = cos(offset)*p.w - sin(offset)*p.z;
   float z = sin(offset)*p.w + cos(offset)*p.z;
@@ -341,17 +355,16 @@ vec4 transform(vec4 p) {
   float sink = sin(k);
   mat4 m = qmat(cosk,-sink,0.0,0.0);
   p = m*p;
-
   return p;
 }
 
-float Fun(float x, float y, float z, float w) {
+float Fun(vec4 p) {
 #if defined BENCHMARK
-  //return Barth10(x,y,z,w);
-  return Labs(vec4(x,y,z,w));
+  //return Barth10(p);
+  return Labs(p);
 #else
-  vec4 p = vec4(x,y,z,w);
   p = transform(p);
+  //return Borg(p);
   //return Sphere(p);
   if (stype == 0) return Labs(p);
   else if (stype == 1) return Barth(p);
@@ -362,6 +375,7 @@ float Fun(float x, float y, float z, float w) {
   else if (stype == 6) return Endrass_8(p);
   else if (stype == 7) return Chmutov14(p);
   else if (stype == 8) return Clebsch(p);
+  else if (stype == 9) return Roman(p);
   else return Sphere(p);
 #endif  
 }
@@ -373,12 +387,8 @@ bool nextbit(inout int n) {
   return result;
 }
 
-// Not quite sure what's going on here. I think
-// we have round-towards-zero. We just want a
-// hash value though.
-int befuddle(float x) {
-  if (x < 0.0) return 2*int(-x)+2;
-  else return 2*int(x)+1;
+int gridpoint(float x) {
+  return int(floor(x));
 }
 
 vec3 selectColor(vec4 q, vec3 eye, vec3 n) {
@@ -430,9 +440,9 @@ vec3 selectColor(vec4 q, vec3 eye, vec3 n) {
                  abs(0.5*sin(K*z/w)+0.5));
   }
   seed = 12345678;
-  seed = mix(seed,befuddle(gridx));
-  seed = mix(seed,befuddle(gridy));
-  seed = mix(seed,befuddle(gridz));
+  seed = mix(seed,gridpoint(gridx));
+  seed = mix(seed,gridpoint(gridy));
+  seed = mix(seed,gridpoint(gridz));
   if (ctype == 6) {
     return vec3(frand(),frand(),frand());
   }
@@ -462,19 +472,17 @@ const float maxincrease = 1.06; // Largest allowed step increase.
 
 const float maxstep = 1.0;     // The largest step that can be taken.
 const float minstep = 0.001;  // The smallest step
-const float initstep = 1.0;
-const float camera = 10.0;
-const float radius = 6.0; // Restrict view to this (unused)
+const float initstep = 0.1;
+
 const float horizon = 20.0; // limit on k
 
-void solve(float x0, float y0, float z0,
-           float a, float b, float c) {
+void solve(vec4 p0, vec4 r) {
   float k0 = 0.0, k1;
-  float a0 = Fun(x0,y0,z0,1.0), a1;
+  float a0 = Fun(p0), a1;
   bool bracketed = false;
   bool found = false;
   float step = initstep;
-  float x, y, z, w;
+  vec4 p;
   float expected = 0.0;
   for (int i = 0; i < iterations; i++) {
     if (bracketed) {
@@ -484,8 +492,9 @@ void solve(float x0, float y0, float z0,
         break;
       }
       float k2 = (k0 + k1)/2.0;
-      x = x0+k2*a, y = y0+k2*b, z = z0+k2*c, w = 1.0;
-      float a2 = Fun(x,y,z,w);
+      //x = x0+k2*a, y = y0+k2*b, z = z0+k2*c, w = 1.0;
+      p = p0+k2*r;
+      float a2 = Fun(p);
       if (a0*a2 <= 0.0) {
         k1 = k2; a1 = a2;
       } else {
@@ -493,10 +502,11 @@ void solve(float x0, float y0, float z0,
       }
     } else {
       k1 = k0 + step;
-      if (k1 > horizon) break;
-      x = x0+k1*a, y = y0+k1*b, z = z0+k1*c, w = 1.0;
+      //if (k1 > horizon) break;
+      //x = x0+k1*a, y = y0+k1*b, z = z0+k1*c, w = 1.0;
+      p = p0 + k1*r;
       //if (x*x+y*y+z*z > radius*radius) break;
-      a1 = Fun(x,y,z,w);
+      a1 = Fun(p);
       //The idea here is to try and correct the
       // step size by seeing how close we are to
       // the curve, but it doesn't seem to work
@@ -525,29 +535,27 @@ void solve(float x0, float y0, float z0,
       }
     }
   }
-  if (!found /*|| x*x+y*y+z*z > radius*radius*/) {
-    //gl_FragColor = vec4(textureCube(uCubeMap,eye).rgb,1.0);
-    discard;
-  }
-  vec3 eye = vec3(a,b,c);
+  if (!found) discard;
+
   // Compute gradient & normal
+  // Should probably scale eps here
   float eps = 1e-3;
-#if 1
-  //vec3 n = vec3(Fun(x+eps,y,z,w),Fun(x,y+eps,z,w),Fun(x,y,z+eps,w)) - a0;
-  vec3 n = vec3(Fun(x0+k0*a+eps,y0+k0*b,z0+k0*c,1.0),
-                Fun(x0+k0*a,y0+k0*b+eps,z0+k0*c,1.0),
-                Fun(x0+k0*a,y0+k0*b,z0+k0*c+eps,1.0)) - a0;
+  vec2 delta = vec2(eps,0.0);
+#if 0
+  p = p0 + k0*r; // Ensure p corresponds to k0 and a0
+  vec3 n = vec3(Fun(p + delta.xyyy), Fun(p + delta.yxyy), Fun(p + delta.yyxy)) - a0;
 #else
-  vec3 n = vec3(Fun(x+eps,y,z,w) - Fun(x-eps,y,z,w),
-                Fun(x,y+eps,z,w) - Fun(x,y-eps,z,w),
-                Fun(x,y,z+eps,w) - Fun(x,y,z-eps,w));
+  // Not sure how much difference this makes
+  vec3 n = vec3(Fun(p + delta.xyyy) - Fun(p - delta.xyyy),
+                Fun(p + delta.yxyy) - Fun(p - delta.yxyy),
+                Fun(p + delta.yyxy) - Fun(p - delta.yyxy));
 #endif
   float grad = abs(length(n));
   n = normalize(n);
-  float ambient = 0.6;
-  float diffuse = 1.0-ambient;
 
-  vec3 baseColor = selectColor(vec4(x,y,z,w),eye,n);
+  vec3 eye = r.xyz;
+  vec3 baseColor = selectColor(p,eye,n);
+  //if (abs(y) < 0.1) baseColor = vec3(1.0,1.0,0.0);
   // Point normal towards eye
   if (dot(eye,n) > 0.0) n *= -1.0;
   vec3 color = baseColor.xyz*(ambient+(1.0-ambient)*dot(light,n));
@@ -574,16 +582,19 @@ void main(void) {
   clock1 = uClock[1];
   coffset = params2[2]; //rrepeat
 
+  float camera = 10.0+5.0*params1[2]; // Opposite to normal OpenGL.
+  
   float xscale = params1[0];       // Width multiplier
   float yscale = params1[1];       // Height multiplier
-  float x = 2.0*(vTextureCoord[0]-0.5)*xscale; // + 2.0*xoffset;
-  float y = 2.0*(vTextureCoord[1]-0.5)*yscale; // + 2.0*yoffset;
-  float z = 0.0;
-
-  int i = int(gl_FragCoord.x);
-  int j = int(gl_FragCoord.y);
+  // Make sure width and height are even to keep
+  // pixel centre off exact axes.
+  float width = float(uWindow.x/2*2);
+  float height = float(uWindow.y/2*2);
+  float x = xscale*(gl_FragCoord.x - 0.5*width)/width;
+  float y = yscale*(gl_FragCoord.y - 0.5*height)/height;
+  
 #if 0
-  seed = int(gl_FragCoord.x*100.0 + gl_FragCoord.y);
+  seed = int(gl_FragCoord.x*1000.0 + gl_FragCoord.y);
   //seed += int(1234.0*gl_FragCoord.x);
   //seed += int(4567.0*gl_FragCoord.y);
   seed += int(1000000.0*vTextureCoord.x);
@@ -591,12 +602,16 @@ void main(void) {
   vec4 noise = texture2D(uNoise, vTextureCoord);
   seed += int(1000000.0*noise.r);
 #endif
-  float x0 = 0.0, y0 = 0.0, z0 = camera;
-  float a = x-x0;
-  float b = y-y0;
-  float c = z-z0;
-  float r = sqrt(a*a + b*b + c*c);
-  a /= r; b /= r; c /= r;
+  float eps0 = 0.0;
+  vec4 p0 = vec4(0.0,0.0,camera,1.0);
+  float a = x;
+  float b = y;
+  float c = -2.0; // Fixed distance to projection plane
+  vec4 r = normalize(vec4(a,b,c,0.0));
   // Could move ray start to radius limit.
-  solve(x0,y0,z0,a,b,c);
+  // Move the ray a little from the origin.
+  // This avoids trouble if the camera position
+  // in on the zero locus (eg. for the Roman surface).
+  float eps = 0.1;
+  solve(p0+eps*r,r);
 }
