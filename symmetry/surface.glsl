@@ -62,7 +62,8 @@ bool applyGamma = false;
 bool colorswap = false;
 bool addNoise = false;
 
-const float two31 = pow(2.0,31.0);
+const float two31 = 2147483648.0;
+
 int seed = 0;
 float frand() {
   // 32-bit RNG from Numerical Recipes
