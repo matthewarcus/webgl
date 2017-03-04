@@ -34,7 +34,7 @@ precision highp float;
 uniform vec4 params1;
 uniform vec4 params2;
 uniform ivec4 iParams;
-uniform vec2 uClock;
+uniform vec4 uClock;
 uniform sampler2D uSampler;
 uniform sampler2D uNoise;
 uniform samplerCube uCubeMap;
@@ -100,7 +100,7 @@ void init() {
 }
 
 const vec3 defaultColor = vec3(0.8,1.0,0.8);
-const vec3 light0 = normalize(vec3(0.0,1.0,-1.0));
+const vec3 light0 = vec3(0.0,0.707,-0.707);
 vec3 light; // Rotated light goes here
 const float ambient = 0.6;
 const float diffuse = 1.0-ambient;
@@ -117,8 +117,8 @@ vec3 getColor(int face) {
 // Return "parity" ie. whether original point is part of
 // a mirrored region.
 bool fold(inout vec2 p) {
+  const vec2 n = vec2(0.5,-0.866);
   for (int i = 0; i < 4; i++) {
-    const vec2 n = vec2(0.5,-0.866);
     if (dot(p,n) > 0.0) p = p - 2.0*(dot(p,n))*n;
     else if (p.x < 0.0) p.x = -p.x;
     else return (i - i/2*2) == 1; // i%2, WebGL style
@@ -128,6 +128,24 @@ bool fold(inout vec2 p) {
 // Boolean array indicating which side of plane i the
 // point is. We only use a[1-12] in fact.
 bool a[20];
+
+// Inlined and unrolled.
+void classify(vec3 p) {
+  const float D = 1.5115;
+  a[0] = dot(p,vec3(0.3568, 0, 0.9342)) <= D;
+  a[1] = dot(p,vec3(0.5774, 0.5774, 0.5774)) <= D;
+  a[2] = dot(p,vec3(0.5774, -0.5774, 0.5774)) <= D;
+  a[3] = dot(p,vec3(0.9342, -0.3568, 0)) <= D;
+  a[4] = dot(p,vec3(0.9342, 0.3568, 0)) <= D;
+  a[5] = dot(p,vec3(0.5774, 0.5774, -0.5774)) <= D;
+  a[6] = dot(p,vec3(0, -0.9342, 0.3568)) <= D;
+  a[7] = dot(p,vec3(0.3568, 0, -0.9342)) <= D;
+  a[8] = dot(p,vec3(0.5774, -0.5774, -0.5774)) <= D;
+  a[9] = dot(p,vec3(0, -0.9342, -0.3568)) <= D;
+  a[10] = dot(p,vec3(-0.5774, -0.5774, -0.5774)) <= D;
+  a[11] = dot(p,vec3(0, 0.9342, -0.3568)) <= D;
+  a[12] = dot(p,vec3(-0.5774, -0.5774, 0.5774)) <= D;
+}
 
 // Convenience functions for Coxeter's faces
 bool face0() { return a[2]; }
@@ -185,14 +203,19 @@ vec3 solve(vec3 p, vec3 r) {
     // 9: line T'
     // 10:
     // Just need the first 12 planes
-    const float D = 1.5115;
     // My Firefox seems to unroll up to 10 iterations,
     // we want this unrolled for speed
+#if 0
+    // Not clear this is any faster really
+    classify(q0);
+#else
+    const float D = 1.5115;
     for (int j = 1; j <= 10; j++) {
       a[j] = dot(q0,planes[j].n) <= D;
     }
     a[11] = dot(q0,planes[11].n) <= D;
     a[12] = dot(q0,planes[12].n) <= D;
+#endif    
     bool accept = false;
     if (stype == 0) {
       accept = accept || (parity? face3() || face6() : face3() || face5() || face9() || face10());

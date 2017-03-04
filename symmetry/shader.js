@@ -72,6 +72,8 @@
     let voffset = 0;
     let clock0 = 0;
     let clock1 = 0;
+    let clock2 = 0;
+    let clock3 = 0;
     let progressive = false;
     
     // Initialize WebGL, returning the GL context or null if
@@ -79,8 +81,9 @@
     function initWebGL(canvas,attributes) {
         let gl = null;
         try {
-            // Could have "webgl-experimental" here instead
-            gl = canvas.getContext("experimental-webgl",attributes)
+            //gl = canvas.getContext("experimental-webgl",attributes)
+            //gl = canvas.getContext("webgl2",attributes)
+            gl = canvas.getContext("webgl",attributes)
         }
         catch(e) {
             console.log(e)
@@ -383,7 +386,7 @@
         }
     }
     function makeflags() {
-        return (flags & 0x1F) + (P<<5) + (Q<<(5+8)) + (hplane<<(5+8+8));
+        return (flags & 0xFF) + (P<<8) + (Q<<(8+8)) + (hplane<<(8+8+8));
     }
     function initProgram(delta) {
         gl.useProgram(program);
@@ -439,7 +442,7 @@
             let u = uniforms[i];
             gl.uniform1i(u.location, u.value);
         }
-
+        
         // These get turned in to 32 bit floats on the GPU so
         // restrict the range to avoid loss of precision.
         // xoffset = (xoffset + xscroll*delta) % 100;
@@ -448,18 +451,22 @@
         uoffset = (uoffset + utfact*delta) % 100;
         voffset = (voffset + vtfact*delta) % 100;
 
+        if (flags & (1<<6)) clock2 += delta;
+        if (flags & (1<<7)) clock3 += delta;
         if (flags & (1<<8)) clock0 += delta;
         if (flags & (1<<9)) clock1 += delta;
 
         // If left too long, we lose precision.
         clock0 %= 3600;
         clock1 %= 3600;
+        clock2 %= 3600;
+        clock3 %= 3600;
         gl.uniform4f(gl.getUniformLocation(program, "params1"),
                      xscale, yscale, xoffset, yoffset);
         gl.uniform4f(gl.getUniformLocation(program, "params2"),
                      ulimit,vlimit,rrepeat,0);
-        gl.uniform2f(gl.getUniformLocation(program, "uClock"),
-                     clock0,clock1);
+        gl.uniform4f(gl.getUniformLocation(program, "uClock"),
+                     clock0,clock1,clock2,clock3);
         gl.uniform4i(gl.getUniformLocation(program, "iParams"),
                      makeflags(),ftype, stype, ctype);
         gl.uniform2i(gl.getUniformLocation(program, "uWindow"),
@@ -470,6 +477,11 @@
                      uscale,uxfact,uyfact,uoffset);
         gl.uniform4f(gl.getUniformLocation(program, "vfact"),
                      vscale,vxfact,vyfact,voffset);
+        // Uniforms for shadertoy shaders
+        gl.uniform2f(gl.getUniformLocation(program, "iResolution"),
+                     gl.canvas.width, gl.canvas.height);
+        gl.uniform1f(gl.getUniformLocation(program, "iGlobalTime"),
+                     clock0);
 
         {
             // Specific to the "wallpaper" shader
@@ -695,9 +707,11 @@
         gl = initWebGL(canvas,attributes);      // Initialize the GL context
         // Only continue if WebGL is available and working
         if (gl) {
+            //gl.getSupportedExtensions().map(s=>console.log(s));
             var isFragDepthAvailable = gl.getExtension("EXT_frag_depth");
             console.log(isFragDepthAvailable);
-            gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Set clear color to black and fully opaque
+            //gl.clearColor(1.0, 1.0, 0.0, 1.0);  // Set clear color to yellow for debugging
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Set clear color to black
             initTexture("../images/" + imgname, gl.RGBA, gl.TEXTURE1);
             initTexture("../images/noise.png", gl.RGBA, gl.TEXTURE2);
             cubeTexture = gl.createTexture();

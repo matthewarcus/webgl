@@ -34,7 +34,7 @@ precision highp float;
 uniform vec4 params1;
 uniform vec4 params2;
 uniform ivec4 iParams;
-uniform vec2 uClock;
+uniform vec4 uClock;
 uniform ivec2 uWindow;
 uniform sampler2D uSampler;
 uniform sampler2D uNoise;
@@ -43,16 +43,18 @@ varying vec2 vTextureCoord;
 
 float clock0;
 float clock1;
+float clock2;
+float clock3;
 float coffset;
 int ftype;
 int stype;
 int ctype;
 
 // Things that should be uniforms
-//const vec3 defaultColor = vec3(1.0,0.5,0.0);
 const vec3 defaultColor = vec3(0.8,1.0,0.8);
+//const vec3 defaultColor = vec3(1.0,0.5,0.0);
 //const vec3 defaultColor = vec3(0.2,0.1,0.1);
-const vec3 light = normalize(vec3(0.0,1.0,1.0));
+const vec3 light = vec3(0.0,0.707,0.707);
 const float ambient = 0.6;
 const float diffuse = 1.0-ambient;
 bool applyGamma = false;
@@ -108,6 +110,20 @@ mat4 qmat(float p0, float p1, float p2, float p3) {
               p1,p0,-p3,p2,
               p2,p3,p0,-p1,
               p3,-p2,p1,p0);
+}
+
+float Kummer(vec4 P) {
+  float A = sqrt(2.0);
+  float mu2 = 3.334 + 3.0*sin(0.3*clock2);
+  float x = P.x; float y = P.y;
+  float z = P.z; float w = P.w;
+  float p = w-z-A*x;
+  float q = w-z+A*x;
+  float r = w+z+A*y;
+  float s = w+z-A*y;
+  float lambda = (3.0*mu2-1.0)/(3.0-mu2);
+  float k = x*x + y*y + z*z - mu2*w*w;
+  return k*k-lambda*p*q*r*s;
 }
 
 float Borg(vec4 p) {
@@ -364,6 +380,7 @@ float Fun(vec4 p) {
   return Labs(p);
 #else
   p = transform(p);
+  //return Roman(p);
   //return Borg(p);
   //return Sphere(p);
   if (stype == 0) return Labs(p);
@@ -374,7 +391,7 @@ float Fun(vec4 p) {
   else if (stype == 5) return Chmutov10(p);
   else if (stype == 6) return Endrass_8(p);
   else if (stype == 7) return Chmutov14(p);
-  else if (stype == 8) return Clebsch(p);
+  else if (stype == 8) return Kummer(p);
   else if (stype == 9) return Roman(p);
   else return Sphere(p);
 #endif  
@@ -580,6 +597,8 @@ void main(void) {
 
   clock0 = uClock[0];
   clock1 = uClock[1];
+  clock2 = uClock[2];
+  clock3 = uClock[3];
   coffset = params2[2]; //rrepeat
 
   float camera = 10.0+5.0*params1[2]; // Opposite to normal OpenGL.
