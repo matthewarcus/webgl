@@ -81,9 +81,9 @@
     function initWebGL(canvas,attributes) {
         let gl = null;
         try {
-            //gl = canvas.getContext("experimental-webgl",attributes)
+            gl = canvas.getContext("experimental-webgl",attributes)
             //gl = canvas.getContext("webgl2",attributes)
-            gl = canvas.getContext("webgl",attributes)
+            //gl = canvas.getContext("webgl",attributes) 
         }
         catch(e) {
             console.log(e)

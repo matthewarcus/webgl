@@ -123,12 +123,14 @@ bool fold(inout vec2 p) {
     else if (p.x < 0.0) p.x = -p.x;
     else return (i - i/2*2) == 1; // i%2, WebGL style
   }
+  return true;
 }
 
 // Boolean array indicating which side of plane i the
 // point is. We only use a[1-12] in fact.
 bool a[20];
 
+#if 0
 // Inlined and unrolled.
 void classify(vec3 p) {
   const float D = 1.5115;
@@ -146,6 +148,7 @@ void classify(vec3 p) {
   a[11] = dot(p,vec3(0, 0.9342, -0.3568)) <= D;
   a[12] = dot(p,vec3(-0.5774, -0.5774, 0.5774)) <= D;
 }
+#endif
 
 // Convenience functions for Coxeter's faces
 bool face0() { return a[2]; }
@@ -180,7 +183,7 @@ vec3 solve(vec3 p, vec3 r) {
   vec2 uv0;
   int type;
   for (int i = 0; i < 20; i++) {
-    if (oneface && i != 15) continue;
+    //if (oneface && i != 15) continue;
     Plane s = planes[i];
     // (p + tr).n = d = p.n + tr.n
     float t = (s.d - dot(p,s.n))/dot(r,s.n);
@@ -337,5 +340,6 @@ void main()
     light.z = sint*x + cost*z;
   }
   vec3 color = solve(p,r);
+  //vec3 color = vec3(1,1,0);
   gl_FragColor = vec4(color,1.0);
 }
