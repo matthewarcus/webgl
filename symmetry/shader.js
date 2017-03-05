@@ -66,6 +66,8 @@
     let vyfact = 0.0;
     let vtfact = 0.0;
 
+    let kfact = 1.0;
+    
     let xoffset = 0;
     let yoffset = 0;
     let uoffset = 0;
@@ -356,6 +358,8 @@
             case 'S': scale /= 1.1; break;
             case 'r': rrepeat += 0.05; break;
             case 'R': rrepeat -= 0.05; break;
+            case 'k': kfact *= 1.1; break;
+            case 'K': kfact /= 1.1; break;
             case 't': utfact += 0.05; break;
             case 'T': utfact -= 0.05; break;
             case 'u': uxfact += 0.1; break;
@@ -464,7 +468,7 @@
         gl.uniform4f(gl.getUniformLocation(program, "params1"),
                      xscale, yscale, xoffset, yoffset);
         gl.uniform4f(gl.getUniformLocation(program, "params2"),
-                     ulimit,vlimit,rrepeat,0);
+                     ulimit,vlimit,rrepeat,kfact);
         gl.uniform4f(gl.getUniformLocation(program, "uClock"),
                      clock0,clock1,clock2,clock3);
         gl.uniform4i(gl.getUniformLocation(program, "iParams"),
