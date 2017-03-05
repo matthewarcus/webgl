@@ -101,16 +101,13 @@ float perp(float x1, float y1, float x2, float y2) {
 }
 
 // Quaternion multiplication as a matrix.
-mat4 qmat(float p0, float p1, float p2, float p3) {
-  // As a matrix mul:
-  // p0 p1 p2 p3
-  // p1 p0 -p3 p2
-  // p2 p3 p0 -p1
-  // p3 -p2 p1 p0
-  return mat4(p0,-p1,-p2,-p3,
-              p1,p0,-p3,p2,
-              p2,p3,p0,-p1,
-              p3,-p2,p1,p0);
+// w coordinate is real element of quaternion
+mat4 qmat(vec4 q) {
+  float x = q.x, y = q.y, z = q.z, t = q.w;
+  return mat4( t,-z, y, x, 
+               z, t,-x, y,
+              -y, x, t, z,
+              -x,-y,-z, t );
 }
 
 float Kummer(vec4 P) {
@@ -368,9 +365,7 @@ vec4 transform(vec4 p) {
   float z = sin(theta)*p.x + cos(theta)*p.z;
   p.x = x; p.z = z;
   float k = 0.1*clock1;
-  float cosk = cos(k);
-  float sink = sin(k);
-  mat4 m = qmat(cosk,-sink,0.0,0.0);
+  mat4 m = qmat(vec4(0.0,0.0,sin(k),cos(k)));
   p = m*p;
   return p;
 }
@@ -381,6 +376,7 @@ float Fun(vec4 p) {
   return Labs(p);
 #else
   p = transform(p);
+  //return Clebsch(p);
   //return Roman(p);
   //return Borg(p);
   //return Sphere(p);
