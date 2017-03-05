@@ -27,17 +27,19 @@ uniform sampler2D uSampler; // Texture sampler
 uniform vec4 ufact, vfact;
 uniform vec4 params1, params2;
 uniform ivec4 iParams; // Misc flags & settings
-
 varying vec2 vTextureCoord; // Could use gl_FragCoord maybe?
 
-const bool doinvert = true; // Do I need this?
+int K = 5;
+const int ITERATIONS = 10;
+const int MM = 0;
+const int NN = 40;
+uniform float conformalParams[NN];
 
 const float PI = 3.141592654;
 const float TWOPI = 2.0*PI;
 const float SQRT3 = 1.732050808; //sqrt(3.0);
 
 /// Complex arithmetic ///
-// File inclusion would be good (PHP?)
 
 // Normal vec2 operations work for
 // addition, subtraction and
@@ -71,9 +73,91 @@ vec2 cexp(vec2 z) {
   return exp(z.x) * expi(z.y);
 }
 
+vec2 cpow(vec2 z, float n) {
+  float r = length(z);
+  float theta = atan(z.y,z.x);
+  return pow(r,float(n))*vec2(cos(n*theta),sin(n*theta));
+}
+
+vec2 cpow(vec2 z, int n) {
+  return cpow(z,float(n));
+}
+
 vec2 csin(vec2 z) {
   float x = z.x, y = z.y;
   return cdiv(cexp(vec2(-y,x))-cexp(vec2(y,-x)), vec2(0,2.0));
+}
+
+bool isnan(float x) {
+  return x != x;
+}
+bool isnan(vec2 z) {
+  return isnan(z.x) || isnan(z.y);
+}
+
+// Taken from NR, simplified by using a fixed number of
+// iterations and removing negative modulus case.
+// Modulus is passed in as k^2 (_not_ 1-k^2 as in NR).
+void sncndn(float u, float k2,
+            out float sn, out float cn, out float dn) {
+  float emc = 1.0-k2;
+  float a,b,c;
+  const int N = 4;
+  float em[N],en[N];
+  a = 1.0;
+  dn = 1.0;
+  for (int i = 0; i < N; i++) {
+    em[i] = a;
+    emc = sqrt(emc);
+    en[i] = emc;
+    c = 0.5*(a+emc);
+    emc = a*emc;
+    a = c;
+  }
+  // Nothing up to here depends on u, so
+  // could be precalculated.
+  u = c*u; sn = sin(u); cn = cos(u);
+  if (sn != 0.0) {
+    a = cn/sn; c = a*c;
+    for(int i = N-1; i >= 0; i--) {
+      b = em[i];
+      a = c*a;
+      c = dn*c;
+      dn = (en[i]+a)/(b+a);
+      a = c/b;
+    }
+    a = 1.0/sqrt(c*c + 1.0);
+    if (sn < 0.0) sn = -a;
+    else sn = a;
+    cn = c*sn;
+  }
+}
+
+// Complex sn. uv are coordinates in a rectangle, map to
+// the upper half plane with a Jacobi elliptic function.
+// Note: uses k^2 as parameter.
+vec2 sn(vec2 z, float k2) {
+  float snu,cnu,dnu,snv,cnv,dnv;
+  sncndn(z.x,k2,snu,cnu,dnu);
+  sncndn(z.y,1.0-k2,snv,cnv,dnv);
+  float a = 1.0/(1.0-dnu*dnu*snv*snv);
+  return a*vec2(snu*dnv, cnu*dnu*snv*cnv);
+}
+
+vec2 cn(vec2 z, float k2) {
+  float snu,cnu,dnu,snv,cnv,dnv;
+  sncndn(z.x,k2,snu,cnu,dnu);
+  sncndn(z.y,1.0-k2,snv,cnv,dnv);
+  float a = 1.0/(1.0-dnu*dnu*snv*snv);
+  return a*vec2(cnu*cnv,-snu*dnu*snv*dnv);
+}
+
+vec2 dn(vec2 z, float k2) {
+  float snu,cnu,dnu,snv,cnv,dnv;
+  sncndn(z.x,k2,snu,cnu,dnu);
+  sncndn(z.y,1.0-k2,snv,cnv,dnv);
+  float a = 1.0/(1.0-dnu*dnu*snv*snv);
+  return a*vec2(dnu*cnv*dnv,-k2*snu*cnu*snv);
 }
 
 float atanh(float r) {
@@ -83,6 +167,50 @@ float atanh(float r) {
 float tanh(float x) {
   return (exp(2.0*x)-1.0)/(exp(2.0*x)+1.0);
 }
+
+#if 0
+#if 0
+vec2 poly(vec2 w) {
+   vec2 z = vec2(0,0);
+   for (int n = MM; n < NN; n++) {
+     z += conformalParams[n]*cpow(w,1+n*K);
+   }
+   return z;
+}
+#else
+float a = 0.4, b = 0.4;
+vec2 poly(vec2 z) {
+   vec2 w = vec2(1,0);
+   for (int i = NN-1; i > MM; i--) {
+      w = cdiv(conformalParams[i]*z,w+vec2(1,0));
+   }
+   w = cdiv(vec2(1,0),vec2(1,0)+w);
+   w = cmul(w,cmul(cpow(z,a),cpow(vec2(1,0)-z,b)))/a;
+   return w;
+}
+#endif
+
+bool polyinv(vec2 z, out vec2 w) {
+  // Find root of g'(w) = g(w)-z
+  vec2 w0 = vec2(0,0);
+  vec2 w1 = z/length(z); //vec2(0,0);
+  vec2 z0 = poly(w0)-z;
+  vec2 z1 = poly(w1)-z;
+  for (int i = 0; i < ITERATIONS; i++) {
+    if (length(z1) < 1e-3) {
+      w = w1;
+      return true;
+    }
+    if (z1 == z0) return false;
+    vec2 w2 = cdiv(cmul(w0,z1) - cmul(w1,z0),z1-z0);
+    if (isnan(w2) || length(w2) > 1.1) return false;
+    vec2 z2 = poly(w2)-z;
+    w0 = w1; z0 = z1;
+    w1 = w2; z1 = z2;
+  }
+  return false;
+}
+#endif
 
 // Invert z in circle radius r, centre w = (p,0)
 // z -> z - w
@@ -113,7 +241,7 @@ bool tryinvert(inout vec2 z, float p, float r2) {
 // so use Pythagoras to find the right angle for a tangent
 // with the disk.
 float diskradius(float p,float r) {
-  return sqrt(p*p-r*r);
+  return sqrt((p+r)*(p-r));
 }
 
 bool tryreflect(inout vec2 z, vec2 norm) {
@@ -173,6 +301,7 @@ void main(void) {
   float ulimit = params2[0];
   float vlimit = params2[1];
   float rrepeat = params2[2];
+  float kfact = params2[3];
 
   float uscale = ufact[0];
   float uxfact = ufact[1];
@@ -184,15 +313,19 @@ void main(void) {
   float vyfact = vfact[2];
   float voffset = vfact[3];
 
-  // We are using 5+8+8+4 = 25 bits for main options
+  // We are using 8+8+8+4 = 28 bits for main options
   // Hopefully we will get 32 bit integers
   int flags = iParams[0]; //1 + 2*(0 + 2*(1 + 2*(0 + 2*(0 + 2*(4 + 16*(4 + 16*(1 + 16*(0))))))));
 
-  bool hyperbolic = nextbit(flags);
+  bool hyperbolic = !nextbit(flags);
   bool doubleup = nextbit(flags);
   bool mask = nextbit(flags);
   bool fundamental = nextbit(flags);
+
   bool chiral = nextbit(flags);
+  bool conformal = nextbit(flags);
+  bool extra1 = nextbit(flags);
+  bool extra2 = nextbit(flags); // 8 bits total here.
   int P = next8bits(flags) + int(hyperbolic);;
   int Q = next8bits(flags);
   int hplane = next4bits(flags);
@@ -232,7 +365,7 @@ void main(void) {
     x = -xscale*(x - 0.5);
     y = yscale*y;
   }
-
+  
   // Scroll
   //x += xoffset*xscale;
   //y += yoffset*yscale;
@@ -240,7 +373,58 @@ void main(void) {
   y += yoffset;
 
   z = vec2(x,y);
-
+  
+  if (conformal) {
+    float k2 = 1.0/(kfact+1.0); //0.5; //k = 1/sqrt(2)
+    float x0, y0;
+    if (hplane == 0) {
+#if 1
+      z = cmul(z,vec2(0.5,0.5));
+      z = cn(z,k2);
+      //if (dot(z,z) > 1.0) discard;
+#else
+      // Not a very successful attempt to invert
+      // a triangle function
+      vec2 w;
+      z = z/radius;
+      z = cmul(z,vec2(0,-1));
+      if (!polyinv(z,w)) discard;
+      z = w;
+#endif
+      z = radius*z;
+    } else if (hplane == 1) {
+      //z = dn(z,k2);
+      z = sn(z,k2);
+      //if (z.y < 0.0) discard;
+      //vec2 w;
+      //if (!polyinv(z,w)) discard;
+      //z = w;
+    }
+  }
+#if 0
+  {
+    // Test code, check transformation.
+    x = z.x, y = z.y;
+    int i,j;
+    bool highlight;
+    if (hplane == 0) {
+      i = int(floor(10.0*sqrt(x*x+y*y)));
+      j = int(floor(12.0*atan(y,x)/PI));
+      highlight = i == 9;
+    } else {
+      i = int(floor(x*10.0));
+      j = int(floor(y*10.0));
+      highlight = j == 0;
+    }
+    int sgn = i+j;
+    if (sgn/2*2 == sgn) {
+      if (highlight) gl_FragColor = vec4(1,0,0,1);
+      else gl_FragColor = vec4(1,1,0,1);
+    } else gl_FragColor = vec4(0,0,0,1);
+    return;
+  }
+#endif
+  
   if (hplane == 2) {
     z = csin(PI*vec2(x,y)/xscale); // edges and bottom are boundaries
   } else if (hplane == 3) {
@@ -254,18 +438,17 @@ void main(void) {
     // Disk isn't the unit disk, so scale appropriately
     z = radius*cdiv(z-ci,z+ci);
   }
-  
-  if (doinvert) {
-    if (abs(eta) < 1e-4) {
-      z.x = -z.x;
-    } else if (hyperbolic) {
-      // Translate by reflecting in a (hyperbolic) line.
-      float k = radius/sin(eta);
-      z = invert(z,k,k*k-radius*radius);
-    } else {
-      float k = 1.0/tan(eta);
-      z = invert(z,k-sin(eta),k*k);
-    }
+
+  // Do hyperbolic translation, ie. an inversion
+  if (abs(eta) < 1e-4) {
+    z.x = -z.x;
+  } else if (hyperbolic) {
+    // Translate by reflecting in a (hyperbolic) line.
+    float k = radius/sin(eta);
+    z = invert(z,k,k*k-radius*radius);
+  } else {
+    float k = 1.0/tan(eta);
+    z = invert(z,k-sin(eta),k*k);
   }
 
   // psi is an angle here
@@ -279,7 +462,7 @@ void main(void) {
     // Only apply rrotation inside the disk
     psi += rrepeat*atanh(length(z)/radius);
   }
-
+  
   bool found = false;
   bool odd = false;
   for (int i = 0; i < 100; i++) {
