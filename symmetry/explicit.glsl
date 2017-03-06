@@ -236,7 +236,7 @@ vec3 radiance(Ray r) {
   return acc;
 }
 
-const int nsamples = 4;
+const int nsamples = 2;
 
 float width, height;
 void render(float x, float y) {
@@ -246,7 +246,7 @@ void render(float x, float y) {
   seed = hash(seed+int(x));
   seed = hash(seed+int(y));
   seed = hash(seed+int(x*y));
-  const Ray cam = Ray(vec3(50.,52.,295.6), normalize(vec3(0.,-0.042612,-1.))); // cam pos, dir
+  Ray cam = Ray(vec3(50.,52.,295.6), normalize(vec3(0.,-0.042612,-1.))); // cam pos, dir
   vec3 cx = vec3(width*.5135/height,0.0,0.0);
   vec3 cy = normalize(cross(cx,cam.d))*.5135;
   vec3 col = vec3(0);

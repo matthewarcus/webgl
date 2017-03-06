@@ -102,9 +102,9 @@ bool intersectScene(Ray r, out Hit hit) {
   return found;
 }
 
-const vec3 light = normalize(vec3(0.0,1.0,1.0));
-const float ambient = 0.6;
-const float diffuse = 1.0-ambient;
+vec3 light;
+float ambient;
+float diffuse;
 
 vec4 solve(Ray r) {
   Hit hit;
@@ -122,6 +122,9 @@ vec4 solve(Ray r) {
 }
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
+  light = normalize(vec3(0.0,1.0,1.0));
+  ambient = 0.6;
+  diffuse = 1.0-ambient;
   vec2 uv = 2.0*fragCoord.xy/iResolution.xy - 1.0;
   vec3 p = vec3(-0.5, -1.0, 6.0);
   vec3 d = normalize(vec3(iResolution.x/iResolution.y * uv.x, uv.y, -3));

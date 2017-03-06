@@ -210,9 +210,9 @@ bool surface(vec4 p, vec4 r, float min, inout float t, out vec3 normal) {
 // C = 3(rr.p -(p.I)(r.I)^2)
 // D = rr.r - (r.I)^3
 
-const vec3 light = normalize(vec3(0.0,1.0,-1.0));
-const float ambient = 0.6;
-const float diffuse = 1.0-ambient;
+vec3 light;
+float ambient;
+float diffuse;
 
 vec4 solve(vec3 p, vec3 r, float min) {
   float t = 1e10;
@@ -301,6 +301,10 @@ vec4 solve(vec3 p, vec3 r, float min) {
 }
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
+  light = normalize(vec3(0.0,1.0,-1.0));
+  ambient = 0.6;
+  diffuse = 1.0-ambient;
+
   init();
   vec2 uv = 2.0*fragCoord.xy/iResolution.xy - 1.0;
   vec3 p = vec3(0.0, 0.0, 10.0);
