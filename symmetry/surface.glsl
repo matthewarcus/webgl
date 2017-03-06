@@ -26,13 +26,15 @@
 
 //#define BENCHMARK
 //#define FAST
-#define QUALITY
+//#define QUALITY
 
 //#extension GL_EXT_frag_depth : enable
 precision highp float;
 
 uniform vec4 params1;
 uniform vec4 params2;
+uniform vec4 ufact;
+uniform vec4 vfact;
 uniform ivec4 iParams;
 uniform vec4 uClock;
 uniform ivec2 uWindow;
@@ -406,6 +408,16 @@ int gridpoint(float x) {
 }
 
 vec3 selectColor(vec4 q, vec3 eye, vec3 n) {
+  float uscale = ufact[0];
+  float uxfact = ufact[1];
+  float uyfact = ufact[2];
+  float uoffset = ufact[3];
+
+  float vscale = vfact[0];
+  float vxfact = vfact[1];
+  float vyfact = vfact[2];
+  float voffset = vfact[3];
+  
   if (ctype == 0) {
     return defaultColor;
   }
@@ -428,9 +440,10 @@ vec3 selectColor(vec4 q, vec3 eye, vec3 n) {
     vec3 p = vec3(abs(x/w),abs(y/w),abs(z/w));
     //vec3 p = normalize(vec3(abs(x),abs(y),abs(z)));
     p /= 1.0/dot(p,c); // Central projection
-    vec3 col = texture2D(uSampler,vec2(dot(p,u),dot(p,v))).rgb;
+    vec2 texCoords = exp(uxfact)*vec2(dot(p,u)+uoffset,dot(p,v)+voffset);
+    vec3 col = texture2D(uSampler,texCoords).rgb;
     if (addNoise) {
-      col *= texture2D(uNoise,vec2(dot(p,u),dot(p,v))).rgb;
+      col *= texture2D(uNoise,texCoords).rgb;
     }
     return col;
   }
@@ -608,7 +621,7 @@ void main(void) {
   float height = float(uWindow.y/2*2);
   float x = xscale*(gl_FragCoord.x - 0.5*width)/width;
   float y = yscale*(gl_FragCoord.y - 0.5*height)/height;
-  
+
 #if 0
   seed = int(gl_FragCoord.x*1000.0 + gl_FragCoord.y);
   //seed += int(1234.0*gl_FragCoord.x);
