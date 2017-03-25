@@ -32,7 +32,7 @@ uniform vec4 CD;
 uniform vec4 a;
 uniform ivec4 mn0;
 uniform ivec4 mn1;
-uniform int uFlags;
+uniform ivec4 iParams;
 uniform int uType;
       
 varying vec2 vTextureCoord; // Could use gl_FragCoord maybe?
@@ -135,7 +135,7 @@ void main(void) {
   vec2 C = vec2(CD[0],CD[1]);
   vec2 D = vec2(CD[2],CD[3]);
 
-  int flags = uFlags;
+  int flags = iParams[0];
   bool hexagonal = nextbit(flags);
   int ftype = uType; //next4bits(flags);
   
