@@ -47,6 +47,7 @@ int quadratic(float A, float B, float C, out vec3 x) {
 // NR algorithm for solving cubic equation
 int cubic0(float a, float b, float c, float d, out vec3 x) {
   if (a == 0.0) return quadratic(b,c,d,x);
+  //if (d == 0.0) return quadratic(a,b,c,x); // Need 0 too.
   float tmp = a; a = b/tmp; b = c/tmp; c = d/tmp;
   // solve x^3 + ax^2 + bx + c = 0
   float Q = (a*a-3.0*b)/9.0;
@@ -156,10 +157,18 @@ bool surface(vec4 p0, vec4 r0, float min, inout float t0, out vec3 normal) {
   vec4 r = m4*r0;
   float pI = dot(p,I);
   float rI = dot(r,I);
+#if 0
   float A = dot(r*r,r) - rI*rI*rI;
   float B = 3.0*(dot(r*r,p) - pI*rI*rI);
   float C = 3.0*(dot(p*p,r) - pI*pI*rI);
   float D = dot(p*p,p)-pI*pI*pI;
+#else
+  // Possibly this is a better way.
+  float A = dot(r*r - rI*rI*I, r);
+  float B = 3.0*dot(r*r - rI*rI*I, p);
+  float C = 3.0*dot(p*p - pI*pI*I, r);
+  float D = dot(p*p - pI*pI*I, p);
+#endif
   vec3 x;
   int nroots = cubic(A,B,C,D,x);
   bool found = false;
@@ -239,7 +248,6 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
   vec3 p = vec3(0.0, 0.0, 6.0);
   vec3 r = normalize(vec3(iResolution.x/iResolution.y * uv.x, uv.y, -3.0));
   float k = -dot(p,r);
-  k = 0.0;
   p += k*r;
   fragColor = solve(p,r,-k);
 }
