@@ -1,3 +1,5 @@
+//#version 300 es
+
 // The MIT License (MIT)
 
 // Copyright (c) 2017 Matthew Arcus
@@ -20,13 +22,21 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-attribute vec3 aVertexPosition;
-attribute vec4 aVertexColor;
-attribute vec2 aVertexUV;
+#if __VERSION__ == 300
+#define IN in
+#define OUT out
+#else
+#define IN attribute
+#define OUT varying
+#endif
+
+IN vec3 aVertexPosition;
+IN vec4 aVertexColor;
+IN vec2 aVertexUV;
 uniform float uVScale;
 
 //varying lowp vec4 vColor;
-varying vec2 vTextureCoord;
+OUT vec2 vTextureCoord;
 void main(void) {
   gl_Position = vec4(aVertexPosition,1.0);
   //vColor = aVertexColor;

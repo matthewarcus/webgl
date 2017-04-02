@@ -696,6 +696,7 @@
             //preserveDrawingBuffer: true,
             //alpha: false,
             //premultipliedAlpha: false
+            //antialias: false
         }
         if (config.progressive) {
             attributes.preserveDrawingBuffer = true;
@@ -713,7 +714,8 @@
         if (gl) {
             //gl.getSupportedExtensions().map(s=>console.log(s));
             var isFragDepthAvailable = gl.getExtension("EXT_frag_depth");
-            console.log(isFragDepthAvailable);
+            var standardDerivatives = gl.getExtension("OES_standard_derivatives");
+            console.log(isFragDepthAvailable,standardDerivatives);
             //gl.clearColor(1.0, 1.0, 0.0, 1.0);  // Set clear color to yellow for debugging
             gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Set clear color to black
             initTexture("../images/" + imgname, gl.RGBA, gl.TEXTURE1);
@@ -721,6 +723,7 @@
             cubeTexture = gl.createTexture();
             let dir = "../images/skybox/";
             //let dir = "../images/MilkyWay/";
+            //let dir = "../images/worldcube/";
             initCubeTexture(dir + "nx.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_NEGATIVE_X);
             initCubeTexture(dir + "ny.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_NEGATIVE_Y);
             initCubeTexture(dir + "nz.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_NEGATIVE_Z);

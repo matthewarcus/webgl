@@ -26,7 +26,7 @@
 
 //#define BENCHMARK
 //#define FAST
-//#define QUALITY
+#define QUALITY
 
 //#extension GL_EXT_frag_depth : enable
 precision highp float;

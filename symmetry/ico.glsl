@@ -183,7 +183,7 @@ vec3 solve(vec3 p, vec3 r) {
   vec2 uv0;
   int type;
   for (int i = 0; i < 20; i++) {
-    //if (oneface && i != 15) continue;
+    if (oneface && i != 15) continue;
     Plane s = planes[i];
     // (p + tr).n = d = p.n + tr.n
     float t = (s.d - dot(p,s.n))/dot(r,s.n);

@@ -28,6 +28,8 @@ precision highp float;
 
 uniform vec4 params1;
 uniform vec4 params2;
+uniform vec4 ufact;
+uniform vec4 vfact;
 uniform ivec4 iParams;
 uniform vec4 uClock;
 uniform sampler2D uSampler;
@@ -96,6 +98,16 @@ int gridpoint(float x) {
 // m is normal in model coords
 // n is normal in world coords
 vec3 selectColor(vec4 q, vec3 eye, vec3 mx, vec3 nx) {
+  float uscale = ufact[0];
+  float uxfact = ufact[1];
+  float uyfact = ufact[2];
+  float uoffset = ufact[3];
+
+  float vscale = vfact[0];
+  float vxfact = vfact[1];
+  float vyfact = vfact[2];
+  float voffset = vfact[3];
+
   if (ctype == 0) {
     return defaultColor;
   }
@@ -113,9 +125,10 @@ vec3 selectColor(vec4 q, vec3 eye, vec3 mx, vec3 nx) {
     vec3 p = vec3(abs(x/w),abs(y/w),abs(z/w));
     //vec3 p = normalize(vec3(abs(x),abs(y),abs(z)));
     p /= 1.0/dot(p,c); // Central projection
-    vec3 col = texture2D(uSampler,vec2(dot(p,u),dot(p,v))).rgb;
+    vec2 texCoords = exp(uxfact)*vec2(dot(p,u)+uoffset,dot(p,v)+voffset);
+    vec3 col = texture2D(uSampler,texCoords).rgb;
     if (addNoise) {
-      col *= texture2D(uNoise,vec2(dot(p,u),dot(p,v))).rgb;
+      col *= texture2D(uNoise,texCoords).rgb;
     }
     return col;
   }
@@ -221,15 +234,15 @@ void solve(vec3 p, vec3 r) {
   vec3 P,Q;
   float R;
   if (stype == 0) {
-    P = vec3(sin(clock1),2.0,3.0);
-    Q = vec3(1.0,0.0,0.0);
-    R = -1.0;
-  } else if (stype == 1) {
     //vec3 P = vec3(0.0,cos(clock1),sin(clock1));
     // Hyperbolic paraboloid & hyperboloid
     P = vec3(1.0,-1.0,sin(clock1));
     Q = vec3(0.0,0.0,-1.0);
     R = 0.0;
+  } else if (stype == 1) {
+    P = vec3(sin(clock1),2.0,3.0);
+    Q = vec3(1.0,0.0,0.0);
+    R = -1.0;
   } else if (stype == 2) {
     //vec3 P = vec3(0.0,cos(clock1),sin(clock1));
     // Transition between hyperbolic cylinder and plane pairs
