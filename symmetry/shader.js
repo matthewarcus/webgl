@@ -92,8 +92,10 @@
         }
 
         // If we don't have a GL context, give up now
-        if (!gl) alert("Unable to initialize WebGL");
-        error = true;
+        if (!gl) {
+            alert("Unable to initialize WebGL");
+            error = true;
+        }
         return gl;
     }
 
@@ -606,6 +608,7 @@
     }
 
     var imgname = "color.jpg";
+    var cubedir = "skybox";
     function mkurl() {
         let s = "?";
         s += "img=" + imgname;
@@ -650,6 +653,8 @@
                 let matches;
                 if (matches = arg.match(/^img=(.+)$/)) {
                     imgname = matches[1];
+                } else if (matches = arg.match(/^cubedir=(.+)$/)) {
+                    cubedir = matches[1];
                 } else if (matches = arg.match(/^hexagonal$/)) {
                     flags |= 1;
                 } else if (matches = arg.match(/^square$/)) {
@@ -709,19 +714,22 @@
         if (config.ctypecount) {
             ctypecount = config.ctypecount;
         }
+        if (config.cubedir) {
+            cubedir = config.cubedir;
+        }
         gl = initWebGL(canvas,attributes);      // Initialize the GL context
         // Only continue if WebGL is available and working
         if (gl) {
             //gl.getSupportedExtensions().map(s=>console.log(s));
-            var isFragDepthAvailable = gl.getExtension("EXT_frag_depth");
-            var standardDerivatives = gl.getExtension("OES_standard_derivatives");
-            console.log(isFragDepthAvailable,standardDerivatives);
+            //var isFragDepthAvailable = gl.getExtension("EXT_frag_depth");
+            //var standardDerivatives = gl.getExtension("OES_standard_derivatives");
+            //console.log(isFragDepthAvailable,standardDerivatives);
             //gl.clearColor(1.0, 1.0, 0.0, 1.0);  // Set clear color to yellow for debugging
             gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Set clear color to black
             initTexture("../images/" + imgname, gl.RGBA, gl.TEXTURE1);
             initTexture("../images/noise.png", gl.RGBA, gl.TEXTURE2);
             cubeTexture = gl.createTexture();
-            let dir = "../images/skybox/";
+            let dir = "../images/" + cubedir + "/";
             //let dir = "../images/MilkyWay/";
             //let dir = "../images/worldcube/";
             initCubeTexture(dir + "nx.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_NEGATIVE_X);
@@ -734,7 +742,8 @@
             fragmentshader = initshader(config.fsfile);
             setTimeout(function(){
                 if (!started && !error) {
-                    alert("Page load timed out: " + resourcesLoading);
+                    // FIXME: a list of timed out resources would be good here
+                    alert("Page load timed out: " + resourcesLoading + " resources still loading");
                 }
             }, 5000);
         }
