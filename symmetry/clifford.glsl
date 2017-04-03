@@ -5,6 +5,8 @@ uniform sampler2D uSampler;
 uniform samplerCube uCubeMap;
 uniform vec2 iResolution;
 uniform vec4 uClock;
+uniform vec4 params1;
+uniform vec4 params2;
 
 float clock0;
 float clock1;
@@ -15,9 +17,10 @@ float clock3;
 
 #define CUBEMAP
 
-const float C = 4.0; // z coord of 3D camera
-const float K = 2.0; // w coord of 4D camera
-const float K2 = K*K;
+float C = 4.0; // z coord of 3D camera
+float K = 2.0; // w coord of 4D camera
+float K2 = K*K;
+
 const int NSTEPS = 16;
 const float infinity = 1e10; //1.0/0.0;
 
@@ -353,10 +356,15 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
   float ar = iResolution.x/iResolution.y; // aspect ratio
   vec2 uv = 2.0*(fragCoord.xy/iResolution.xy - 0.5);
   // -1 <= u,v <= 1
-  float scale = 1.0; // y coord is -scale to +scale
+  float scale = params1[1]; 
   vec2 screenpoint = scale*vec2(ar*uv.x, uv.y);
   vec3 p = vec3(0.0, 0.0, -C);                  // point of projection
   vec3 r = normalize(vec3(screenpoint,0) - p); // ray
+
+  // Try to shift projection point into scene
+  // There are better ways to do this
+  if (C > 4.0) p += (C-4.0)*r;
+  if (C < -4.0) p += (C+4.0)*r;
 
   // Set matrices
   float theta = 0.1*clock1;
@@ -436,6 +444,9 @@ void main() {
   clock1 = uClock[1];
   clock2 = uClock[2];
   clock3 = uClock[3];
+  C = 4.0 + 1.0*params1[2];
+  K = 2.0 + 1.0*params1[3];
+  K2 = K*K;
   mainImage(gl_FragColor, gl_FragCoord.xy);
   //testImage(gl_FragColor, gl_FragCoord.xy);
 }
