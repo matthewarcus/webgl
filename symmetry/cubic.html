@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Clebsch Diagonal Surface</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <link rel="stylesheet" href="../webgl.css" type="text/css">
+    <script src="../utils.js" type="text/javascript"></script>
+  </head>
+  <body>
+    <script src="../js/gl-matrix/gl-matrix.js" type="text/javascript"></script>
+    <script src="shader-cubic.js" type="text/javascript"></script>
+    <script type="text/javascript">
+      window.onload = function () {
+      let config = {
+      vsfile: "basicvertexshader.glsl",
+      fsfile: "cubic.glsl",
+      ctypecount: 8,
+      stypecount: 7
+      }
+      runoncanvas(glcanvas, config);
+      }
+    </script>      
+    <div id="info"></div>
+    <div id="help"></div>
+    <canvas id="glcanvas">
+      Your browser doesn't appear to support the <code>&lt;canvas&gt;</code> element.
+    </canvas>
+  </body>
+</html>
