@@ -65,8 +65,12 @@ bool colorswap = false;
 bool addNoise = false;
 
 const float two31 = 2147483648.0;
+const float phi = 1.618033;
+const float phi2 = phi*phi;
+const float phi4 = phi2*phi2;
 
 int seed = 0;
+
 float frand() {
   // 32-bit RNG from Numerical Recipes
   seed *= 1664525;
@@ -85,10 +89,6 @@ int mix(int seed, int n) {
   seed += seed*2;
   return seed;
 }
-
-const float phi = 1.618033;
-const float phi2 = phi*phi;
-const float phi4 = phi2*phi2;
 
 // Two dimensional perpendicular distance
 float dist(float x0, float y0, float x1, float y1, float x2, float y2) {
@@ -114,9 +114,9 @@ mat4 qmat(vec4 q) {
 
 float Kummer(vec4 P) {
   float A = sqrt(2.0);
-  float mu2 = 3.334 + 3.0*sin(0.3*clock2);
-  float x = P.x; float y = P.y;
-  float z = P.z; float w = P.w;
+  float mu2 = 0.334 + 3.0*(1.0-cos(0.3*clock2));
+  float x = P.z; float y = P.y;
+  float z = P.x; float w = P.w;
   float p = w-z-A*x;
   float q = w-z+A*x;
   float r = w+z+A*y;
@@ -128,6 +128,17 @@ float Kummer(vec4 P) {
 
 float Borg(vec4 p) {
   return sin(p.x*p.y)+sin(p.y*p.z)+sin(p.x*p.z);
+}
+
+float Quadratic(vec4 P) {
+  // x = y +- (y^2 - z)^0.5
+  float x = P.z, y = P.y, z = P.x;
+  return x*x - 2.0*x*y + z;
+}
+
+float A2(vec4 P) {
+   float x = P.w, y = P.y, z = P.z, w = P.x;
+  return w*w*w + x*y*z;
 }
 
 float Sphere(vec4 p) {
@@ -382,6 +393,8 @@ float Fun(vec4 p) {
   //return Roman(p);
   //return Borg(p);
   //return Sphere(p);
+  //return Quadratic(p);
+  //return A2(p);
   if (stype == 0) return Labs(p);
   else if (stype == 1) return Barth(p);
   else if (stype == 2) return Endrass8(p);
@@ -409,7 +422,7 @@ int gridpoint(float x) {
 
 vec3 selectColor(vec4 q, vec3 eye, vec3 n) {
   float uscale = ufact[0];
-  float uxfact = ufact[1];
+  float uxfact = exp(ufact[1]);
   float uyfact = ufact[2];
   float uoffset = ufact[3];
 
@@ -427,7 +440,7 @@ vec3 selectColor(vec4 q, vec3 eye, vec3 n) {
   // Get projective coordinates
   q = transform(q);
   if (colorswap) q = ctransform(q, 1.570796);
-  else if (coffset != 0.0) q = ctransform(q,coffset);
+  if (coffset != 0.0) q = ctransform(q,coffset);
 
   float x = q.x, y = q.y, z = q.z, w = q.w;
   if (ctype == 2) {
@@ -440,7 +453,7 @@ vec3 selectColor(vec4 q, vec3 eye, vec3 n) {
     vec3 p = vec3(abs(x/w),abs(y/w),abs(z/w));
     //vec3 p = normalize(vec3(abs(x),abs(y),abs(z)));
     p /= 1.0/dot(p,c); // Central projection
-    vec2 texCoords = exp(uxfact)*vec2(dot(p,u)+uoffset,dot(p,v)+voffset);
+    vec2 texCoords = uxfact*vec2(dot(p,u)+uoffset,dot(p,v)+voffset);
     vec3 col = texture2D(uSampler,texCoords).rgb;
     if (addNoise) {
       col *= texture2D(uNoise,texCoords).rgb;
@@ -451,21 +464,20 @@ vec3 selectColor(vec4 q, vec3 eye, vec3 n) {
     return textureCube(uCubeMap,normalize(vec3(x/w,y/w,z/w))).rgb;
   }
   // Use a grid
-  float R = 10.0;
-  float gridx = x/w*R;
-  float gridy = y/w*R;
-  float gridz = x/w*R;
+  float R = 10.0/uxfact;
   if (ctype == 4) {
-    return vec3(mod(x/w*R,1.0),
-                mod(y/w*R,1.0),
-                mod(z/w*R,1.0));
+    return vec3(mod(x/w*R + uoffset,1.0),
+                mod(y/w*R + uoffset,1.0),
+                mod(z/w*R + uoffset,1.0));
   }
   if (ctype == 5) {
-    float K = 1.0;
-    return vec3 (abs(0.5*sin(K*x/w)+0.5),
-                 abs(0.5*sin(K*y/w)+0.5),
-                 abs(0.5*sin(K*z/w)+0.5));
+    return vec3 (abs(0.5*sin(uxfact*x/w + uoffset)+0.5),
+                 abs(0.5*sin(uxfact*y/w + uoffset)+0.5),
+                 abs(0.5*sin(uxfact*z/w + uoffset)+0.5));
   }
+  float gridx = x/w*R + uoffset;
+  float gridy = y/w*R + uoffset;
+  float gridz = x/w*R + uoffset;
   seed = 12345678;
   seed = mix(seed,gridpoint(gridx));
   seed = mix(seed,gridpoint(gridy));
@@ -594,7 +606,18 @@ void solve(vec4 p0, vec4 r) {
   //gl_FragDepthEXT = 0.5;
 }
 
+#if 0
+  seed = int(gl_FragCoord.x*1000.0 + gl_FragCoord.y);
+  //seed += int(1234.0*gl_FragCoord.x);
+  //seed += int(4567.0*gl_FragCoord.y);
+  seed += int(1000000.0*vTextureCoord.x);
+  seed += int(1000000.0*vTextureCoord.y);
+  vec4 noise = texture2D(uNoise, vTextureCoord);
+  seed += int(1000000.0*noise.r);
+#endif
+
 void main(void) {
+  // Set global settings
   int flags = iParams[0];
   nextbit(flags);
   colorswap = nextbit(flags);
@@ -611,8 +634,8 @@ void main(void) {
   clock3 = uClock[3];
   coffset = params2[2]; //rrepeat
 
+  // Projection parameters
   float camera = 10.0+5.0*params1[2]; // Opposite to normal OpenGL.
-  
   float xscale = params1[0];       // Width multiplier
   float yscale = params1[1];       // Height multiplier
   // Make sure width and height are even to keep
@@ -622,21 +645,9 @@ void main(void) {
   float x = xscale*(gl_FragCoord.x - 0.5*width)/width;
   float y = yscale*(gl_FragCoord.y - 0.5*height)/height;
 
-#if 0
-  seed = int(gl_FragCoord.x*1000.0 + gl_FragCoord.y);
-  //seed += int(1234.0*gl_FragCoord.x);
-  //seed += int(4567.0*gl_FragCoord.y);
-  seed += int(1000000.0*vTextureCoord.x);
-  seed += int(1000000.0*vTextureCoord.y);
-  vec4 noise = texture2D(uNoise, vTextureCoord);
-  seed += int(1000000.0*noise.r);
-#endif
-  float eps0 = 0.0;
   vec4 p0 = vec4(0.0,0.0,camera,1.0);
-  float a = x;
-  float b = y;
-  float c = -2.0; // Fixed distance to projection plane
-  vec4 r = normalize(vec4(a,b,c,0.0));
+  float z = -2.0; // Fixed distance to projection plane
+  vec4 r = normalize(vec4(x,y,z,0.0));
   // Could move ray start to radius limit.
   // Move the ray a little from the origin.
   // This avoids trouble if the camera position

@@ -14,13 +14,18 @@
       vsfile: "basicvertexshader.glsl",
       fsfile: "surface.glsl",
       ctypecount: 8,
-      stypecount: 10
+      stypecount: 10,
+      helpstring: 
+      "&lt;space&gt;: run s/S: scale a/A: surface c/C: colortype " +
+      "1: infinity 2: gamma 3: noise 6: Kummer 8: 3D rotation 9: 4D rotation " +
+      "r/R: rrepeat t/T: utfact u/U: uxfact " +
+      "?: info"
       }
       runoncanvas(glcanvas, config);
       }
     </script>      
-    <div id="info"></div>
     <div id="help"></div>
+    <div id="info"></div>
     <canvas id="glcanvas">
       Your browser doesn't appear to support the <code>&lt;canvas&gt;</code> element.
     </canvas>

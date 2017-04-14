@@ -33,7 +33,6 @@
 IN vec3 aVertexPosition;
 IN vec4 aVertexColor;
 IN vec2 aVertexUV;
-uniform float uVScale;
 
 //varying lowp vec4 vColor;
 OUT vec2 vTextureCoord;

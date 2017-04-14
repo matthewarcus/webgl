@@ -17,7 +17,13 @@
       // Could make this window.onload or use an event handler.
       let config = {
       vsfile: "basicvertexshader.glsl",
-      fsfile: "hyperbolic.glsl"
+      fsfile: "hyperbolic.glsl",
+      helpstring:
+      "&lt;space&gt;: run, s/S: scale, p/P: P, q/Q: Q, " +
+      "0: hyperbolic, 1: double, 2: background, 3: region, 4: chiral, 5: conformal, " +
+      "h/H: hplane, k/K: conformal k, x/X: xoffset, y/Y: yoffset, " +
+      "r/R: rrepeat, t/T: utfact, u/U: uxfact, v/V: vyfact, " +
+      "?: info"
       }
       runoncanvas(glcanvas, config);
     </script>      

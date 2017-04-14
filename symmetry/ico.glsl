@@ -153,7 +153,7 @@ void classify(vec3 p) {
 // Convenience functions for Coxeter's faces
 bool face0() { return a[2]; }
 bool face1() { return a[3]; }
-bool face2() { return a[1] && a[6] && !a[3]; }
+bool face2() { return a[4] && a[6] && !a[3]; }
 bool face3() { return a[8] && !a[6]; }
 bool face4() { return a[1] && a[8] && !a[4]; }
 bool face5() { return !a[8] && a[1] && a[6]; }
@@ -271,6 +271,9 @@ vec3 solve(vec3 p, vec3 r) {
     // USW
     //accept = a[8] || (parity ? a[9] && a[5] : false);
     //accept = a[4]; // De2f2 (exterior)
+    //accept = face8() || face3() || face4() || face2() || face7() || face1() || face0();
+    //accept = face8() || face10() || face12() || face0() || face7();
+    //accept = face0() || face7() || face9() || face12();
     if (!accept) continue;
     found = true;
     t0 = t; n = -s.n; uv0 = uv; type = s.c;

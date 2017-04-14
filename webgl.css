@@ -18,9 +18,9 @@ canvas {
     font-size: 80%;
     width: 100%;
 }
-#info {
+#help {
     top: 0px;
 }
-#help {
+#info {
     bottom: 0px;
 }

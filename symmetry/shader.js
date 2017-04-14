@@ -27,6 +27,7 @@
     let program;
     let vertexshader;
     let fragmentshader;
+    let setupshader;
 
     let vertexBuffer;
     let showinfo = true;
@@ -67,6 +68,7 @@
     let vtfact = 0.0;
 
     let kfact = 1.0;
+    let bfact = 1.0;
     
     let xoffset = 0;
     let yoffset = 0;
@@ -352,16 +354,26 @@
             case '7': flags ^= (1<<7); break;
             case '8': flags ^= (1<<8); break;
             case '9': flags ^= (1<<9); break;
+            case 'a': stype = (stype+1)%stypecount; break;
+            case 'A': stype = (stype+stypecount-1)%stypecount; break;
+            case 'b': bfact *= 1.1; break;
+            case 'B': bfact /= 1.1; break;
+            case 'c': ctype = (ctype+1)%ctypecount; break;
+            case 'C': ctype = (ctype+ctypecount-1)%ctypecount; break;
+            case 'f': ftype = (ftype+1)%ftypecount; break;
+            case 'F': ftype = (ftype+ftypecount-1)%ftypecount; break;
+            case 'h': hplane = (hplane+1)%5; break;
+            case 'H': hplane = (hplane+4)%5; break;
+            case 'k': kfact *= 1.1; break;
+            case 'K': kfact /= 1.1; break;
             case 'p': P = (P+1)%NMAX; break;
             case 'P': P = (P+NMAX-1)%NMAX; break;
             case 'q': Q = (Q+1)%NMAX; break;
             case 'Q': Q = (Q+NMAX-1)%NMAX; break;
-            case 's': scale *= 1.1; break;
-            case 'S': scale /= 1.1; break;
             case 'r': rrepeat += 0.05; break;
             case 'R': rrepeat -= 0.05; break;
-            case 'k': kfact *= 1.1; break;
-            case 'K': kfact /= 1.1; break;
+            case 's': scale *= 1.1; break;
+            case 'S': scale /= 1.1; break;
             case 't': utfact += 0.05; break;
             case 'T': utfact -= 0.05; break;
             case 'u': uxfact += 0.1; break;
@@ -373,14 +385,6 @@
             case 'X': xoffset -= 0.1; break;
             case 'y': yoffset += 0.1; break;
             case 'Y': yoffset -= 0.1; break;
-            case 'a': stype = (stype+1)%stypecount; break;
-            case 'A': stype = (stype+stypecount-1)%stypecount; break;
-            case 'c': ctype = (ctype+1)%ctypecount; break;
-            case 'C': ctype = (ctype+ctypecount-1)%ctypecount; break;
-            case 'f': ftype = (ftype+1)%ftypecount; break;
-            case 'F': ftype = (ftype+ftypecount-1)%ftypecount; break;
-            case 'h': hplane = (hplane+1)%5; break;
-            case 'H': hplane = (hplane+4)%5; break;
             case '?': showinfo = !showinfo; setinfo(); break;
             case '!': alert(mkurl()); break;
             default:
@@ -394,7 +398,7 @@
     function makeflags() {
         return (flags & 0xFF) + (P<<8) + (Q<<(8+8)) + (hplane<<(8+8+8));
     }
-    function initProgram(delta) {
+    function initProgram(delta,config) {
         gl.useProgram(program);
         
         let xscale = scale;
@@ -471,14 +475,14 @@
                      xscale, yscale, xoffset, yoffset);
         gl.uniform4f(gl.getUniformLocation(program, "params2"),
                      ulimit,vlimit,rrepeat,kfact);
+        gl.uniform4f(gl.getUniformLocation(program, "params3"),
+                     bfact,0,0,0);
         gl.uniform4f(gl.getUniformLocation(program, "uClock"),
                      clock0,clock1,clock2,clock3);
         gl.uniform4i(gl.getUniformLocation(program, "iParams"),
                      makeflags(),ftype, stype, ctype);
         gl.uniform2i(gl.getUniformLocation(program, "uWindow"),
                      gl.canvas.width, gl.canvas.height);
-        gl.uniform1f(gl.getUniformLocation(program, "uVScale"),
-                     gl.canvas.height/gl.canvas.width)
         gl.uniform4f(gl.getUniformLocation(program, "ufact"),
                      uscale,uxfact,uyfact,uoffset);
         gl.uniform4f(gl.getUniformLocation(program, "vfact"),
@@ -489,6 +493,8 @@
         gl.uniform1f(gl.getUniformLocation(program, "iGlobalTime"),
                      clock0);
 
+        if (setupshader) setupshader(gl,program,{ kfact: kfact,
+                                                  clock2: clock2 });
         {
             // Specific to the "wallpaper" shader
             // This should be in a shader-specific function
@@ -580,15 +586,18 @@
         if (showinfo) {
             let s = "";
             s += "Framerate: " + ((1000/frametime)|0);
-            s += " stype: " + stype;
-            s += " ctype: " + ctype;
-            s += " ftype: " + ftype;
-            s += " scale: " + scale.toFixed(2);
-            s += " rrepeat: " + rrepeat.toFixed(2);
-            s += " uxfact: " + uxfact.toFixed(2);
-            s += " vyfact: " + vyfact.toFixed(2);
-            s += " utfact: " + utfact.toFixed(2);
-            s += " frame: " + framenumber;
+            s += ", frame: " + framenumber;
+            s += ", stype: " + stype;
+            s += ", ctype: " + ctype;
+            s += ", ftype: " + ftype;
+            s += ", P: " + P;
+            s += ", Q: " + Q;
+            s += ", flags: " + "0x" + flags.toString(16);
+            s += ", scale: " + scale.toFixed(2);
+            s += ", rrepeat: " + rrepeat.toFixed(2);
+            s += ", uxfact: " + uxfact.toFixed(2);
+            s += ", vyfact: " + vyfact.toFixed(2);
+            s += ", utfact: " + utfact.toFixed(2);
             info.innerHTML = s;
         }
         
@@ -643,7 +652,24 @@
     }
         
     window.runoncanvas = function(canvas,config) {
-        help.innerHTML = helpstring;
+        help.innerHTML = config.helpstring || helpstring;
+        if (config.progressive) {
+            attributes.preserveDrawingBuffer = true;
+            attributes.alpha = false;
+            progressive = true;
+        }
+        if (config.stypecount) {
+            stypecount = config.stypecount;
+        }
+        if (config.ctypecount) {
+            ctypecount = config.ctypecount;
+        }
+        if (config.cubedir) {
+            cubedir = config.cubedir;
+        }
+        if (config.setupshader) {
+            setupshader = config.setupshader;
+        }
         setinfo();
         var options = window.location.search;
         if (options.length > 0) {
@@ -659,6 +685,10 @@
                     flags |= 1;
                 } else if (matches = arg.match(/^square$/)) {
                     flags &= ~1;
+                } else if (matches = arg.match(/^flags=([xa-fA-F\d]+)$/)) {
+                    flags = Number(matches[1]);
+                } else if (matches = arg.match(/^hplane=([\d]+)$/)) {
+                    hplane = Number(matches[1]);
                 } else if (matches = arg.match(/^scale=([\d.-]+)$/)) {
                     scale = Number(matches[1]);
                 } else if (matches = arg.match(/^stype=([\d]+)$/)) {
@@ -691,6 +721,9 @@
                     ulimit = Number(matches[1]);
                 } else if (matches = arg.match(/^vlimit=([\d.-]+)$/)) {
                     vlimit = Number(matches[1]);
+                } else if (matches = arg.match(/^run$/)) {
+                    running = true;
+                    flags |= (1<<8);
                 } else {
                     console.log("Ignoring parameter '" + arg + "'");
                 }
@@ -702,20 +735,6 @@
             //alpha: false,
             //premultipliedAlpha: false
             //antialias: false
-        }
-        if (config.progressive) {
-            attributes.preserveDrawingBuffer = true;
-            attributes.alpha = false;
-            progressive = true;
-        }
-        if (config.stypecount) {
-            stypecount = config.stypecount;
-        }
-        if (config.ctypecount) {
-            ctypecount = config.ctypecount;
-        }
-        if (config.cubedir) {
-            cubedir = config.cubedir;
         }
         gl = initWebGL(canvas,attributes);      // Initialize the GL context
         // Only continue if WebGL is available and working

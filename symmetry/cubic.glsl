@@ -3,6 +3,9 @@
 
 precision highp float;
 uniform vec4 uClock;
+uniform vec4 params1;
+uniform vec4 params2;
+uniform vec4 params3;
 uniform vec2 iResolution;
 
 const int NLINES = 27;
@@ -150,7 +153,9 @@ int cubic0(float a, float b, float c, float d, out vec3 x) {
 int cubic(float A, float B, float C, float D, out vec3 x) {
   int nroots;
   // Some ill-conditioned coeffs can cause problems
-  // The worst is fixed by solving for reciprocal
+  // The worst is fixed by solving for reciprocal.
+  // Jim Blinn suggests a more sophisticated method
+  // solving both ways & selecting best roots from each.
   if (abs(A) > abs(D)) {
     nroots = cubic0(A,B,C,D,x);
   } else {
@@ -427,7 +432,7 @@ vec4 solve(vec3 p, vec3 r, float min) {
                 0.0, 0.0, 0.0, 1.0);
 #else
   vec3 a = normalize(vec3(1,1,1));
-  //vec3 a = normalize(vec3(0,1,0));
+  //vec3 a = normalize(vec3(0,0,1));
   m = qmat(vec4(sin(theta)*a,cos(theta)));
   minv = qmat(vec4(sin(-theta)*a,cos(-theta)));
 #endif
@@ -469,14 +474,16 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
   clock0 = uClock[0];
   clock1 = uClock[1];
   K = vec4(1,1,1,K0);
+  float scale = params1[0];       // Width multiplier
 
   light = normalize(vec3(0.0,1.0,-1.0));
   ambient = 0.6;
   diffuse = 1.0-ambient;
 
-  vec2 uv = 2.0*fragCoord.xy/iResolution.xy - 1.0;
-  vec3 p = vec3(0.0, 0.0, 6.0);
-  vec3 r = normalize(vec3(iResolution.x/iResolution.y * uv.x, uv.y, -3.0));
+  vec2 uv = scale*(fragCoord.xy/iResolution.xy - 0.5);
+  float camera = 4.0+2.0*params1[2]; // Opposite to normal OpenGL.
+  vec3 p = vec3(0.0, 0.0, camera);
+  vec3 r = normalize(vec3(iResolution.x/iResolution.y * uv.x, uv.y, -2.0));
   float k = -dot(p,r);
   //k = 0.0;
   p += k*r;

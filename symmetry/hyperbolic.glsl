@@ -25,7 +25,7 @@ precision highp int;
 
 uniform sampler2D uSampler; // Texture sampler
 uniform vec4 ufact, vfact;
-uniform vec4 params1, params2;
+uniform vec4 params1, params2, params3;
 uniform ivec4 iParams; // Misc flags & settings
 varying vec2 vTextureCoord; // Could use gl_FragCoord maybe?
 
@@ -264,7 +264,6 @@ bool tryreflect(inout vec2 z, vec2 norm, vec2 w) {
   }
 }
 
-
 // Rather tediously, ES 1.0 doesn't support bit operations
 // on ints, so use these for decoding packed values.
 bool nextbit(inout int n) {
@@ -302,6 +301,8 @@ void main(void) {
   float vlimit = params2[1];
   float rrepeat = params2[2];
   float kfact = params2[3];
+
+  float bfact = params3[0];
 
   float uscale = ufact[0];
   float uxfact = ufact[1];
@@ -348,7 +349,7 @@ void main(void) {
 
   float xlim = 1.0;//ufact[1];
   float eta = 0.1*vyfact;
-  float radius = diskradius(p,r);
+  float radius = !hyperbolic ? bfact : diskradius(p,r);
 
   vec2 z = vTextureCoord;
   float x = z.x, y = z.y;
@@ -381,9 +382,8 @@ void main(void) {
 #if 1
       z = cmul(z,vec2(0.5,0.5));
       z = cn(z,k2);
-      //if (dot(z,z) > 1.0) discard;
 #else
-      // Not a very successful attempt to invert
+      // A not very successful attempt to invert
       // a triangle function
       vec2 w;
       z = z/radius;
@@ -395,10 +395,6 @@ void main(void) {
     } else if (hplane == 1) {
       //z = dn(z,k2);
       z = sn(z,k2);
-      //if (z.y < 0.0) discard;
-      //vec2 w;
-      //if (!polyinv(z,w)) discard;
-      //z = w;
     }
   }
 #if 0
