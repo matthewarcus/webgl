@@ -6,6 +6,7 @@ uniform vec4 uClock;
 uniform vec4 params1;
 uniform vec4 params2;
 uniform vec4 params3;
+uniform mat4 uMatrix;
 uniform vec2 iResolution;
 
 const int NLINES = 27;
@@ -394,7 +395,7 @@ void tryline(vec4 q, vec4 p, vec4 r, int color) {
    }
 }
 
-vec4 solve(vec3 p, vec3 r, float min) {
+vec4 solve(vec4 p, vec4 r, float min) {
   float t = 1e10;
   vec3 normal = vec3(1,0,0);
   float theta = clock1*0.1; 
@@ -443,30 +444,33 @@ vec4 solve(vec3 p, vec3 r, float min) {
   bool dosurface = true;
   bool dolines = false;
   dolines = true;
-  if (dosurface && surface(vec4(p,1),vec4(r,0),min,t,normal)) {
+  if (dosurface && surface(p,r,min,t,normal)) {
     colorindex = 0;
-    vec4 q = vec4(p+t*r,1);
-    for (int i = 0; i < 27; i++) {
-      if (i == nlines) break;
-      vec4 p = minv*uLines[2*i];
-      vec4 r = minv*uLines[2*i+1];
-      if (abs(p.w) < abs(r.w)) {
-        tryline(q,r,p,uColors[i]);
-      } else {
-        tryline(q,p,r,uColors[i]);
+    if (dolines) {
+      vec4 q = p+t*r;
+      for (int i = 0; i < 27; i++) {
+        if (i == nlines) break;
+        vec4 p = minv*uLines[2*i];
+        vec4 r = minv*uLines[2*i+1];
+        if (abs(p.w) < abs(r.w)) {
+          tryline(q,r,p,uColors[i]);
+        } else {
+          tryline(q,p,r,uColors[i]);
+        }
       }
     }
   }
   if (highlight) colorindex = 1;
   if (colorindex == -1) return vec4(0,0,0,1);
-  if (dot(r,normal) > 0.0) {
+  if (dot(vec3(r),normal) > 0.0) {
     normal = -normal; // Face forwards
   }
   vec4 baseColor = getColor(colorindex);
   vec3 color;
-  color = baseColor.xyz*(ambient+(1.0-ambient)*dot(light,normal));
-  float specular = pow(max(0.0,dot(reflect(light,normal),r)),4.0);
-  color += 0.7*specular*vec3(1.0,1.0,1.0);
+  color = baseColor.xyz*ambient;
+  color += baseColor.xyz*diffuse*(max(0.0,dot(light,normal)));
+  float specular = pow(max(0.0,dot(reflect(light,normal),vec3(r))),10.0);
+  color += 0.5*specular*vec3(1.0,1.0,1.0);
   return vec4(sqrt(color),1.0);
 }
 
@@ -477,21 +481,24 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
   float scale = params1[0];       // Width multiplier
 
   light = normalize(vec3(0.0,1.0,-1.0));
-  ambient = 0.6;
+  ambient = 0.4;
   diffuse = 1.0-ambient;
 
+  float xoffset = params1[2];
   vec2 uv = scale*(fragCoord.xy/iResolution.xy - 0.5);
-  float camera = 4.0+2.0*params1[2]; // Opposite to normal OpenGL.
-  vec3 p = vec3(0.0, 0.0, camera);
-  vec3 r = normalize(vec3(iResolution.x/iResolution.y * uv.x, uv.y, -2.0));
+  float camera = 4.0+2.0*xoffset; // Opposite to normal OpenGL.
+  vec4 p = vec4(0.0, 0.0, camera,1.0);
+  vec4 r = normalize(vec4(iResolution.x/iResolution.y * uv.x, uv.y, -2.0, 0.0));
   float k = -dot(p,r);
   //k = 0.0;
   p += k*r;
-  float phi = clock0*0.123; 
-  mat3 rmat = mat3(cos(phi), 0.0, -sin(phi),
+  float phi = clock0*0.123;
+  mat4 rmat = uMatrix;
+  mat3 pmat = mat3(cos(phi), 0.0, -sin(phi),
                    0.0, 1.0, 0.0,
                    sin(phi), 0.0, cos(phi));
-  light *= rmat;
+  rmat *= mat4(pmat);
+  light *= mat3(rmat);
   p *= rmat;
   r *= rmat;
   fragColor = solve(p,r,-k);

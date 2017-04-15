@@ -79,7 +79,31 @@
     let clock2 = 0;
     let clock3 = 0;
     let progressive = false;
-    
+
+    var modelMatrix = mat4.create();
+    var modelQuat = quat.create();
+    var tmpQuat = quat.create();
+    function qrotate(r,theta) {
+        const cost = Math.cos(theta);
+        const sint = Math.sin(theta);
+        let q = modelQuat;
+        let t = tmpQuat;
+        t[0] = sint*r[0];
+        t[1] = sint*r[1];
+        t[2] = sint*r[2];
+        t[3] = cost;
+        let qlen = quat.length(q);
+        let tlen = quat.length(t);
+        quat.multiply(q,t,q);
+        //console.log(qlen,tlen,quat.length(q));
+        // Renormalize to ensure we don't drift away
+        // from being a unit quaternion.
+        quat.normalize(q,q);
+    }
+    var xQuat = quat.fromValues(1,0,0,0);
+    var yQuat = quat.fromValues(0,1,0,0);
+    var zQuat = quat.fromValues(0,0,1,0);
+
     // Initialize WebGL, returning the GL context or null if
     // WebGL isn't available or could not be initialized.
     function initWebGL(canvas,attributes) {
@@ -184,6 +208,28 @@
                     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
                 }
                 initBuffers();
+/*
+                window.addEventListener("mouseover",function() {
+                    if (!running) {
+                        // If we are now running, start animating.
+                        requestAnimationFrame(drawScene);
+                        timelast = null;
+                        //console.log("Running");
+                        running = true;
+                    }
+                },false);
+                window.addEventListener("mouseout",function() {
+                    //console.log("Stopping");
+                    running = false;
+                },false);
+*/
+	        window.addEventListener( 'mousedown', onMouseDown, false );
+/*
+	        window.addEventListener( 'touchstart', onTouchStart, false );
+	        window.addEventListener( 'touchmove', onTouchMove, false );
+	        window.addEventListener( 'touchend', onTouchEnd, false );
+*/
+                window.addEventListener("keydown",keydownHandler,false);
                 window.addEventListener("keypress",keypressHandler,false);
                 window.addEventListener("resize",function () {
                     if (started && !running) requestAnimationFrame(drawScene);
@@ -329,6 +375,114 @@
           "u/U: uxfact v/V: vytype a/A: stype c/C: ctype f/F: ftype 0: hexagonal " +
           "?: info !: mkurl"
 
+    // A very much cut down version of Three.js OrbitalControls.js
+    var moveStartX, moveStartY;
+    function moveStart(clientX,clientY) {
+	moveStartX = clientX;
+	moveStartY = clientY;
+    }
+    function moveEvent(clientX,clientY) {
+        const w = gl.canvas.clientWidth;
+        const h = gl.canvas.clientHeight;
+        const x0 = (moveStartX-0.5*h)/h, y0 = (moveStartY-0.5*h)/h;
+        const x1 = (clientX-0.5*h)/h, y1 = (clientY-0.5*h)/h;
+        //const r0 = Math.sqrt(x0*x0 + y0*y0);
+        //const r1 = Math.sqrt(x1*x1 + y1*y1);
+        //console.log(r0,t0,r1,t1);
+        //qrotate(xQuat,(r1-r0)*Math.sin(t0));
+        //console.log((y1-y0));
+        // Not sure this is quite right, but works OKish.
+        qrotate(xQuat,3.0*(y1-y0));
+        qrotate(yQuat,3.0*(x1-x0));
+/*
+        const t0 = Math.atan2(y0,x0);
+        const t1 = Math.atan2(y1,x1);
+        qrotate(zQuat,-0.5*(t1-t0));
+*/
+        if (started && !running) requestAnimationFrame(drawScene);
+	//rotateEnd.set( event.clientX, event.clientY );
+	//rotateDelta.subVectors( rotateEnd, rotateStart );
+	// rotating across whole screen goes 360 degrees around
+	//scope.rotateLeft( 2 * Math.PI * rotateDelta.x / element.clientWidth * scope.rotateSpeed );
+	// rotating up and down along whole screen attempts to go 360, but limited to 180
+	//scope.rotateUp( 2 * Math.PI * rotateDelta.y / element.clientHeight * scope.rotateSpeed );
+	moveStartX = clientX;
+	moveStartY = clientY;
+    }
+    function onMouseDown( event ) {
+	event.preventDefault();
+        moveStart(event.clientX,event.clientY);
+	window.addEventListener( 'mousemove', onMouseMove, false );
+	window.addEventListener( 'mouseup', onMouseUp, false );
+    }
+    function onMouseMove( event ) {
+	event.preventDefault();
+        moveEvent(event.clientX,event.clientY);
+    }
+    function onMouseUp( event ) {
+	event.preventDefault();
+	window.removeEventListener( 'mousemove', onMouseMove, false );
+	window.removeEventListener( 'mouseup', onMouseUp, false );
+    }
+
+    function onTouchStart( event ) {
+	event.preventDefault();
+	event.stopPropagation();
+        moveStart(event.touches[0].pageX, event.touches[0].pageY );
+    }
+    function onTouchMove( event ) {
+	event.preventDefault();
+	event.stopPropagation();
+        console.log("onTouchMove", event.touches[0].pageX, event.touches[0].pageY);
+        moveEvent(event.touches[0].pageX, event.touches[0].pageY);
+    }
+    function onTouchEnd( event ) {
+	event.preventDefault();
+	event.stopPropagation();
+        // Nothing for now
+    }
+
+    const PAGEUP = 33, PAGEDOWN = 34, LEFT = 37, UP = 38, RIGHT = 39, DOWN = 40;
+
+    function keydownHandler( event ) {
+        let handled = false;
+        //console.log(event.keyCode);
+        const theta = 0.01;
+	switch ( event.keyCode ) {
+	case LEFT:
+            qrotate(zQuat,theta);
+            handled = true;
+	    break;
+	case RIGHT:
+            qrotate(zQuat,-theta);
+	    handled = true;
+	    break;
+	case UP:
+            xoffset -= 0.1;
+            //qrotate(xQuat,theta);
+            //qrotate(yQuat,-theta);
+            handled = true;
+	    break;
+	case DOWN:
+            xoffset += 0.1;
+            //qrotate(xQuat,-theta);
+            //qrotate(yQuat,theta);
+	    handled = true;
+	    break;
+/*
+	case LEFT:
+            qrotate(yQuat,theta);
+	    handled = true;
+	    break;
+	case RIGHT:
+            qrotate(yQuat,-theta);
+	    handled = true;
+	    break;
+*/
+	}
+        if (started && !running) requestAnimationFrame(drawScene);
+        if (handled) event.preventDefault();
+    }
     function keypressHandler(event) {
         if (!event.ctrlKey) {
             // Ignore event if control key pressed.
@@ -385,6 +539,7 @@
             case 'X': xoffset -= 0.1; break;
             case 'y': yoffset += 0.1; break;
             case 'Y': yoffset -= 0.1; break;
+            case 'z': quat.set(modelQuat,0,0,0,1); break;
             case '?': showinfo = !showinfo; setinfo(); break;
             case '!': alert(mkurl()); break;
             default:
@@ -471,6 +626,12 @@
         clock1 %= 3600;
         clock2 %= 3600;
         clock3 %= 3600;
+        //var cost = Math.cos(0.1*clock3), sint = Math.sin(0.1*clock3);
+        //quat.set(modelQuat,0,0,sint,cost);
+        mat4.fromQuat(modelMatrix,modelQuat);
+        //console.log(modelMatrix);
+        gl.uniformMatrix4fv(gl.getUniformLocation(program, "uMatrix"),
+                            false,modelMatrix);
         gl.uniform4f(gl.getUniformLocation(program, "params1"),
                      xscale, yscale, xoffset, yoffset);
         gl.uniform4f(gl.getUniformLocation(program, "params2"),
@@ -651,6 +812,12 @@
         }
     }
         
+    let attributes = {
+        //preserveDrawingBuffer: true,
+        //alpha: false,
+        //premultipliedAlpha: false
+        //antialias: false
+    }
     window.runoncanvas = function(canvas,config) {
         help.innerHTML = config.helpstring || helpstring;
         if (config.progressive) {
@@ -730,12 +897,6 @@
             });
         }
 
-        let attributes = {
-            //preserveDrawingBuffer: true,
-            //alpha: false,
-            //premultipliedAlpha: false
-            //antialias: false
-        }
         gl = initWebGL(canvas,attributes);      // Initialize the GL context
         // Only continue if WebGL is available and working
         if (gl) {

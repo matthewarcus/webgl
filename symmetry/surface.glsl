@@ -26,7 +26,7 @@
 
 //#define BENCHMARK
 //#define FAST
-#define QUALITY
+//#define QUALITY
 
 //#extension GL_EXT_frag_depth : enable
 precision highp float;
@@ -41,6 +41,8 @@ uniform ivec2 uWindow;
 uniform sampler2D uSampler;
 uniform sampler2D uNoise;
 uniform samplerCube uCubeMap;
+uniform mat4 uMatrix;
+
 varying vec2 vTextureCoord;
 
 float clock0;
@@ -57,12 +59,14 @@ const vec3 defaultColor = vec3(0.8,1.0,0.8);
 //const vec3 defaultColor = vec3(1.0,0.5,0.0);
 //const vec3 defaultColor = vec3(0.2,0.1,0.1);
 const vec3 light = vec3(0.0,0.707,0.707);
-const float ambient = 0.6;
+const float ambient = 0.5;
 const float diffuse = 1.0-ambient;
 bool applyGamma = false;
 
 bool colorswap = false;
 bool addNoise = false;
+bool doSpecular = true;
+bool doDiffuse = true;
 
 const float two31 = 2147483648.0;
 const float phi = 1.618033;
@@ -188,6 +192,13 @@ float T10(float x) {
   float x2 = x*x;
   return -1.0 + x2*(50.0 + x2*(-400.0 + x2*(1120.0 + x2*(-1280.0 + x2*512.0))));
 }
+float Chmutov10(vec4 p) {
+  float x = p.x; float y = p.y;
+  float z = p.z; float w = p.w;
+  return T10(x)+T10(y)+T10(z)+1.0;
+}
+
+#if 0
 // These recurrences take a while to compile.
 float T11(float x) {
   return 2.0*x*T10(x) - T9(x);
@@ -201,6 +212,12 @@ float T13(float x) {
 float T14(float x) {
   return 2.0*x*T13(x) - T12(x);
 }
+float Chmutov14(vec4 p) {
+  float x = p.x; float y = p.y;
+  float z = p.z; float w = p.w;
+  return T14(x)+T14(y)+T14(z)+1.0;
+}
+
 float T15(float x) {
   return 2.0*x*T14(x) - T13(x);
 }
@@ -212,18 +229,6 @@ float T17(float x) {
 }
 float T18(float x) {
   return 2.0*x*T17(x) - T16(x);
-}
-
-float Chmutov10(vec4 p) {
-  float x = p.x; float y = p.y;
-  float z = p.z; float w = p.w;
-  return T10(x)+T10(y)+T10(z)+1.0;
-}
-
-float Chmutov14(vec4 p) {
-  float x = p.x; float y = p.y;
-  float z = p.z; float w = p.w;
-  return T14(x)+T14(y)+T14(z)+1.0;
 }
 
 float Chmutov18(vec4 p) {
@@ -252,6 +257,7 @@ float Chmutov6(vec4 p) {
   float z = p.z; float w = p.w;
   return T6(x)+T6(y)+T6(z)+1.0;
 }
+#endif
 
 // The following functions for various surfaces are
 // taken from Abdelaziz Nait Merzouk's Fragmentarium
@@ -401,10 +407,11 @@ float Fun(vec4 p) {
   else if (stype == 3) return Barth10(p);
   else if (stype == 4) return Sarti12(p);
   else if (stype == 5) return Chmutov10(p);
-  else if (stype == 6) return Endrass_8(p);
-  else if (stype == 7) return Chmutov14(p);
-  else if (stype == 8) return Kummer(p);
-  else if (stype == 9) return Roman(p);
+  else if (stype == 6) return Endrass8(p);
+  else if (stype == 7) return Kummer(p);
+  //else if (stype == 8) return Endrass_8(p);
+  //else if (stype == 9) return Chmutov14(p);
+  //else if (stype == 10) return Roman(p);
   else return Sphere(p);
 #endif  
 }
@@ -597,9 +604,15 @@ void solve(vec4 p0, vec4 r) {
   //if (abs(y) < 0.1) baseColor = vec3(1.0,1.0,0.0);
   // Point normal towards eye
   if (dot(eye,n) > 0.0) n *= -1.0;
-  vec3 color = baseColor.xyz*(ambient+(1.0-ambient)*dot(light,n));
-  float specular = pow(max(0.0,dot(reflect(light,n),eye)),4.0);
-  color += 0.7*specular*vec3(1.0,1.0,1.0);
+  vec3 color = baseColor.xyz*ambient;
+  float k = dot(light,n);
+  if (doDiffuse && k > 0.0) {
+    color += baseColor*diffuse*k;
+  }
+  if (doSpecular && k > 0.0) {
+    float specular = pow(max(0.0,dot(reflect(light,n),eye)),4.0);
+    color += 0.5*specular*vec3(1.0,1.0,1.0);
+  }
   if (applyGamma) color = sqrt(color);
   //color *= 0.5+0.5*frand();
   gl_FragColor = vec4(color,1.0);
@@ -623,6 +636,8 @@ void main(void) {
   colorswap = nextbit(flags);
   applyGamma = nextbit(flags);
   addNoise = nextbit(flags);
+  doSpecular = !nextbit(flags);
+  doDiffuse = !nextbit(flags);
 
   ftype = iParams[1];
   stype = iParams[2];
@@ -648,6 +663,9 @@ void main(void) {
   vec4 p0 = vec4(0.0,0.0,camera,1.0);
   float z = -2.0; // Fixed distance to projection plane
   vec4 r = normalize(vec4(x,y,z,0.0));
+  p0 *= uMatrix;
+  r *= uMatrix;
+
   // Could move ray start to radius limit.
   // Move the ray a little from the origin.
   // This avoids trouble if the camera position

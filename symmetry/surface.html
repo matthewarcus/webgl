@@ -7,6 +7,7 @@
     <script src="../utils.js" type="text/javascript"></script>
   </head>
   <body>
+    <script src="../js/gl-matrix/gl-matrix.js" type="text/javascript"></script>
     <script src="shader.js" type="text/javascript"></script>
     <script type="text/javascript">
       window.onload = function () {
@@ -14,11 +15,11 @@
       vsfile: "basicvertexshader.glsl",
       fsfile: "surface.glsl",
       ctypecount: 8,
-      stypecount: 10,
+      stypecount: 8,
       helpstring: 
-      "&lt;space&gt;: run s/S: scale a/A: surface c/C: colortype " +
-      "1: infinity 2: gamma 3: noise 6: Kummer 8: 3D rotation 9: 4D rotation " +
-      "r/R: rrepeat t/T: utfact u/U: uxfact " +
+      "&lt;space&gt;: run, s/S: scale, a/A: surface, c/C: colortype, " +
+      "1: infinity, 2: gamma, 3: noise, 6: Kummer, 8: 3D rotation, 9: 4D rotation, " +
+      "r/R: rrepeat, t/T: utfact, u/U: uxfact, " +
       "?: info"
       }
       runoncanvas(glcanvas, config);

@@ -39,6 +39,7 @@ uniform sampler2D uSampler;
 uniform sampler2D uNoise;
 uniform samplerCube uCubeMap;
 uniform ivec2 uWindow;
+uniform mat4 uMatrix;
 
 varying vec2 vTextureCoord;
 
@@ -102,7 +103,7 @@ void init() {
 const vec3 defaultColor = vec3(0.8,1.0,0.8);
 const vec3 light0 = vec3(0.0,0.707,-0.707);
 vec3 light; // Rotated light goes here
-const float ambient = 0.6;
+const float ambient = 0.3;
 const float diffuse = 1.0-ambient;
 bool applyGamma = false;
 
@@ -291,9 +292,10 @@ vec3 solve(vec3 p, vec3 r) {
     n *= -1.0;
   }
         
-  vec3 color = baseColor.xyz*(ambient+(1.0-ambient)*dot(light,n));
+  vec3 color = baseColor.xyz*(ambient+diffuse*max(0.0,dot(light,n)));
   float specular = pow(max(0.0,dot(reflect(light,n),r)),4.0);
-  color += 0.7*specular*vec3(1.0,1.0,1.0);
+  color += 0.5*specular*vec3(1.0,1.0,1.0);
+  //color += 0.5*specular*baseColor.xyz;
   if (applyGamma) color = sqrt(color);
   return color;
 }
@@ -324,23 +326,20 @@ void main()
   float y = xscale*(gl_FragCoord.y - 0.5*height)/width;
   vec3 p = vec3(0.0, 0.0, -camera); // Eye position
   vec3 r = normalize(vec3(x, y, 1.0)); // Ray
-  // Matrices!
-  {
-    float x = p.x, z = p.z;
-    p.x = cost*x - sint*z;
-    p.z = sint*x + cost*z;
-  }
-  {
-    float x = r.x, z = r.z;
-    r.x = cost*x - sint*z;
-    r.z = sint*x + cost*z;
-  }
+
+  mat3 rmat = mat3(cost,0,-sint,
+                   0,1,0,
+                   sint,0,cost);
   light = light0;
-  // Is the camera rotating or the object?
+  p = mat3(uMatrix) * p;
+  r = mat3(uMatrix) * r;
+  light = mat3(uMatrix) * light;
+
+  p = rmat * p;
+  r = rmat * r;
+
   if (rotatescene) {
-    float x = light.x, z = light.z;
-    light.x = cost*x - sint*z;
-    light.z = sint*x + cost*z;
+    light *= rmat;
   }
   vec3 color = solve(p,r);
   //vec3 color = vec3(1,1,0);

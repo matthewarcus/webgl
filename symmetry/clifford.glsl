@@ -7,6 +7,7 @@ uniform vec2 iResolution;
 uniform vec4 uClock;
 uniform vec4 params1;
 uniform vec4 params2;
+uniform mat4 uMatrix;
 
 float clock0;
 float clock1;
@@ -17,9 +18,9 @@ float clock3;
 
 #define CUBEMAP
 
-float C = 4.0; // z coord of 3D camera
-float K = 2.0; // w coord of 4D camera
-float K2 = K*K;
+float C = 4.0;  // z coord of 3D camera
+float K = 2.0;  // w coord of 4D camera
+float K2 = 4.0; // K*K
 
 const int NSTEPS = 16;
 const float infinity = 1e10; //1.0/0.0;
@@ -83,6 +84,8 @@ float F(vec4 p) {
 
 // We are projecting from w = K to w=0
 // Assume the point is on the hypersphere
+// so |unproject(p,n)| = 1 and
+// project(unproject(p,n)) = p
 vec4 unproject(vec3 p, int parity) {
   float A = dot(p,p)+K2;
   float B = -2.0*K2;
@@ -92,6 +95,7 @@ vec4 unproject(vec3 p, int parity) {
   if (parity == 1) t1 = t2;
   return vec4(t1*p,K*(1.0-t1));
 }
+
 vec3 project(vec4 p) {
   float a = K/(K-p.w);
   return a*p.xyz;
@@ -270,14 +274,18 @@ bool solve(vec3 p, vec3 r, int parity, inout float tres) {
   if (!quadratic(A,B,C,t1,t2)) {
     return false;
   }
+  //assert(t1 <= t2);
+  //assert(t2 - t1 > 1e-2);
   // t1 and t2 are near and far R3 sphere intersections
   const int N = NSTEPS; // subdivide interval
   float t0 = t1;
   float x0 = eval(p,r,t0,parity);
+
   // If we have already hit the surface, return.
   // Allowing negative x0 avoids problems with the join
   if (abs(x0) < 1e-3 && t0 < tres) {
     tres = t0;
+    //highlight = true;
     return true;
   }
   for (int i = 1; i <= N; i++) {
@@ -350,8 +358,8 @@ float diffuse;
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
   light = normalize(vec3(0.0,1.0,-1.0)); // -ve z is lit from front
-  ambient = 0.6;
-  diffuse = 1.0-ambient;
+  ambient = 0.5;
+  diffuse = 0.5;
 
   float ar = iResolution.x/iResolution.y; // aspect ratio
   vec2 uv = 2.0*(fragCoord.xy/iResolution.xy - 0.5);
@@ -382,6 +390,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
   float t = infinity;
   int color = -1;
   // Move the camera & ray into model coordinates
+  p = mat3(uMatrix) * p;
+  r = mat3(uMatrix) * r;
   p = rmat*p;
   r = rmat*r;
   if (solve(p,r,0,t)) color = 0;
@@ -419,16 +429,17 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
       normal = -normal;
     }
     //if (gridpoint(q,color)) color = 2;
-    vec3 baseColor;
+    vec4 baseColor;
     if (color > 1) {
-      baseColor = getColor(color).xyz;
+      baseColor = getColor(color);
     } else {
-      baseColor = getMapColor(q,color).xyz;
+      baseColor = getMapColor(q,color);
     }
-    light = rmat*light; // rotate light into model space
-    vec3 color = baseColor.xyz*(ambient+(1.0-ambient)*dot(light,normal));
+    //light = mat3(uMatrix) * light;
+    light = rmat*light;
+    vec3 color = baseColor.xyz*(ambient+diffuse*max(0.0,dot(light,normal)));
     float specular = pow(max(0.0,dot(reflect(light,normal),r)),4.0);
-    color += 0.7*specular*vec3(1.0,1.0,1.0);
+    color += 0.5*specular*vec3(1.0,1.0,1.0);
     fragColor = vec4(color,1.0);
     //fragColor = vec4(sqrt(color),1.0);
   }
