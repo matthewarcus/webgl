@@ -103,7 +103,7 @@ void init() {
 const vec3 defaultColor = vec3(0.8,1.0,0.8);
 const vec3 light0 = vec3(0.0,0.707,-0.707);
 vec3 light; // Rotated light goes here
-const float ambient = 0.3;
+const float ambient = 0.5;
 const float diffuse = 1.0-ambient;
 bool applyGamma = false;
 
@@ -316,9 +316,6 @@ void main()
 
   float xscale = params1[0];       // Width multiplier
   //float yscale = params1[1];       // Height multiplier
-  float t = clock0*0.2;
-  float cost = cos(t);
-  float sint = sin(t);
   float width = float(uWindow[0]);
   float height = float(uWindow[1]);
   float camera = 10.0+5.0*params1[2];
@@ -327,20 +324,11 @@ void main()
   vec3 p = vec3(0.0, 0.0, -camera); // Eye position
   vec3 r = normalize(vec3(x, y, 1.0)); // Ray
 
-  mat3 rmat = mat3(cost,0,-sint,
-                   0,1,0,
-                   sint,0,cost);
   light = light0;
   p = mat3(uMatrix) * p;
   r = mat3(uMatrix) * r;
   light = mat3(uMatrix) * light;
 
-  p = rmat * p;
-  r = rmat * r;
-
-  if (rotatescene) {
-    light *= rmat;
-  }
   vec3 color = solve(p,r);
   //vec3 color = vec3(1,1,0);
   gl_FragColor = vec4(color,1.0);

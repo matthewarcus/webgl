@@ -58,7 +58,9 @@ int ctype;
 const vec3 defaultColor = vec3(0.8,1.0,0.8);
 //const vec3 defaultColor = vec3(1.0,0.5,0.0);
 //const vec3 defaultColor = vec3(0.2,0.1,0.1);
-const vec3 light = vec3(0.0,0.707,0.707);
+//const vec3 light = vec3(0.0,0.707,0.707);
+vec3 light;
+
 const float ambient = 0.5;
 const float diffuse = 1.0-ambient;
 bool applyGamma = false;
@@ -67,6 +69,7 @@ bool colorswap = false;
 bool addNoise = false;
 bool doSpecular = true;
 bool doDiffuse = true;
+bool doHorizon = false;
 
 const float two31 = 2147483648.0;
 const float phi = 1.618033;
@@ -378,11 +381,6 @@ vec4 ctransform(vec4 p, float offset) {
 }
 
 vec4 transform(vec4 p) {
-  // This should be done in the driver.
-  float theta = 0.1*clock0;
-  float x = cos(theta)*p.x - sin(theta)*p.z;
-  float z = sin(theta)*p.x + cos(theta)*p.z;
-  p.x = x; p.z = z;
   float k = 0.1*clock1;
   mat4 m = qmat(vec4(0.0,0.0,sin(k),cos(k)));
   p = m*p;
@@ -548,7 +546,7 @@ void solve(vec4 p0, vec4 r) {
       }
     } else {
       k1 = k0 + step;
-      //if (k1 > horizon) break;
+      if (doHorizon && k1 > horizon) break;
       //x = x0+k1*a, y = y0+k1*b, z = z0+k1*c, w = 1.0;
       p = p0 + k1*r;
       //if (x*x+y*y+z*z > radius*radius) break;
@@ -632,7 +630,7 @@ void solve(vec4 p0, vec4 r) {
 void main(void) {
   // Set global settings
   int flags = iParams[0];
-  nextbit(flags);
+  doHorizon = nextbit(flags);
   colorswap = nextbit(flags);
   applyGamma = nextbit(flags);
   addNoise = nextbit(flags);
@@ -649,8 +647,10 @@ void main(void) {
   clock3 = uClock[3];
   coffset = params2[2]; //rrepeat
 
+  light = normalize(vec3(0.5,1,-1));
+
   // Projection parameters
-  float camera = 10.0+5.0*params1[2]; // Opposite to normal OpenGL.
+  float camera = 10.0+5.0*params1[2];
   float xscale = params1[0];       // Width multiplier
   float yscale = params1[1];       // Height multiplier
   // Make sure width and height are even to keep
@@ -660,12 +660,20 @@ void main(void) {
   float x = xscale*(gl_FragCoord.x - 0.5*width)/width;
   float y = yscale*(gl_FragCoord.y - 0.5*height)/height;
 
-  vec4 p0 = vec4(0.0,0.0,camera,1.0);
-  float z = -2.0; // Fixed distance to projection plane
+  vec4 p0 = vec4(0.0,0.0,-camera,1.0);
+  float z = 2.0; // Fixed distance to projection plane
   vec4 r = normalize(vec4(x,y,z,0.0));
-  p0 *= uMatrix;
-  r *= uMatrix;
+  p0 = uMatrix*p0;
+  r = uMatrix*r;
+  light = mat3(uMatrix)*light; // Light moves with camera
 
+  // Reverse z direction as most of our surfaces are more
+  // interesting from that direction.
+  // We could roll this into our matrix.
+  p0.z = -p0.z;
+  r.z = -r.z;
+  light.z = -light.z;
+  
   // Could move ray start to radius limit.
   // Move the ray a little from the origin.
   // This avoids trouble if the camera position

@@ -39,12 +39,6 @@ bool highlight = false; // Debugging
 mat4 m;
 mat4 minv;
 
-#if 0
-vec4 lines[NLINES*2];
-int colors[NLINES];
-int nlines = 3;
-#endif
-
 float d2best = 1e10;
 int colorindex = -1;
 
@@ -170,130 +164,6 @@ int cubic(float A, float B, float C, float D, out vec3 x) {
   else if (nroots == 3) sort(x[0],x[1],x[2]);
   return nroots;
 }
-
-#if 0
-void initlines() {
-  if (K0 != 1.0) {
-    // Lines on the base
-    lines[0] = minv*vec4(1,0,0,0); lines[1] = minv*vec4(0,1,-1,0);
-    lines[2] = minv*vec4(0,1,0,0); lines[3] = minv*vec4(1,0,-1,0);
-    lines[4] = minv*vec4(0,0,1,0); lines[5] = minv*vec4(1,-1,0,0);
-    if (false && K0 == 0.25) {
-      nlines = 9;
-      // Lines from "central" vertex of tetrahedron to "outer" vertices
-      lines[6] = minv*vec4(-1,-1,-1,2); lines[7] = minv*vec4(1,-1,-1,2);
-      lines[8] = minv*vec4(-1,-1,-1,2); lines[9] = minv*vec4(-1,1,-1,2);
-      lines[10] = minv*vec4(-1,-1,-1,2); lines[11] = minv*vec4(-1,-1,1,2);
-
-      // Lines between "outer" vertices
-      lines[12] = minv*vec4(1,-1,-1,2); lines[13] = minv*vec4(-1,1,-1,2);
-      lines[14] = minv*vec4(-1,1,-1,2); lines[15] = minv*vec4(-1,-1,1,2);
-      lines[16] = minv*vec4(-1,-1,1,2); lines[17] = minv*vec4(1,-1,-1,2);
-    } else {
-      // For K0 = 0.25 get z0 = z1 = -0.5
-      // For K0 = 0.5, get C = 0.5, (-3 +- sqrt(9 - 6))/6 = -1/2(1 +- 1/sqrt(3));
-      // For K0 = 1, get z0 = 0, z1 = -1
-      float A = 3.0, B = 3.0, C = 1.0-K0, z0, z1;
-      if (quadratic0(A,B,C,z0,z1)) {
-        nlines += 12;
-        lines[6] = minv*vec4(0,0,z0,1); lines[7] = minv*vec4(1,-1,0,0);
-        lines[8] = minv*vec4(0,z0,0,1); lines[9] = minv*vec4(1,0,-1,0);
-        lines[10] = minv*vec4(z0,0,0,1); lines[11] = minv*vec4(0,1,-1,0);
-        lines[12] = minv*vec4(0,0,z1,1); lines[13] = minv*vec4(1,-1,0,0);
-        lines[14] = minv*vec4(0,z1,0,1); lines[15] = minv*vec4(1,0,-1,0);
-        lines[16] = minv*vec4(z1,0,0,1); lines[17] = minv*vec4(0,1,-1,0);
-
-        {
-          const int base = 18;//2*nlines;
-          lines[base+0] = minv*vec4(z0,z1,0,1); lines[base+1] = minv*vec4(0,0,1,0);
-          lines[base+2] = minv*vec4(z0,0,z1,1); lines[base+3] = minv*vec4(0,1,0,0);
-          lines[base+4] = minv*vec4(0,z0,z1,1); lines[base+5] = minv*vec4(1,0,0,0);
-
-          lines[base+6+0] = minv*vec4(z1,z0,0,1); lines[base+6+1] = minv*vec4(0,0,1,0);
-          lines[base+6+2] = minv*vec4(z1,0,z0,1); lines[base+6+3] = minv*vec4(0,1,0,0);
-          lines[base+6+4] = minv*vec4(0,z1,z0,1); lines[base+6+5] = minv*vec4(1,0,0,0);
-        }
-        float b = 0.607644, a = 0.444341;
-        //float a = 0.5125,  b = 0.5;
-        //float a = 1.85802,  b = 5.50585;
-        //float a = 0.844, b = 2.371; // K0 = 2
-        //float a = 0.475, b = 1.052; // K0 = 0.5
-        //float a = 0.434, b = 0.692;
-        if (true) {
-          nlines += 6;
-          const int base = 30;//2*nlines;
-          lines[base+0] = minv*vec4(a, -a,z0,1); lines[base+1] = minv*vec4(b, z1,-b,1);
-          lines[base+2] = minv*vec4(a, z0,-a,1); lines[base+3] = minv*vec4(b, -b,z1,1);
-          lines[base+4] = minv*vec4(-a, a,z0,1); lines[base+5] = minv*vec4(z1, b,-b,1);
-          lines[base+6] = minv*vec4(-a,z0, a,1); lines[base+7] = minv*vec4(z1,-b, b,1);
-          lines[base+8] = minv*vec4(z0, a,-a,1); lines[base+9] = minv*vec4(-b, b,z1,1);
-          lines[base+10] = minv*vec4(z0,-a, a,1); lines[base+11] = minv*vec4(-b,z1, b,1);
-        }
-        {
-          nlines += 6;
-          swap(a,b);
-          a = -a; b = -b;
-          const int base = 42;//2*nlines;
-          lines[base+0] = minv*vec4(a, -a,z0,1); lines[base+1] = minv*vec4(b, z1,-b,1);
-          lines[base+2] = minv*vec4(a, z0,-a,1); lines[base+3] = minv*vec4(b, -b,z1,1);
-          lines[base+4] = minv*vec4(-a, a,z0,1); lines[base+5] = minv*vec4(z1, b,-b,1);
-          lines[base+6] = minv*vec4(-a,z0, a,1); lines[base+7] = minv*vec4(z1,-b, b,1);
-          lines[base+8] = minv*vec4(z0, a,-a,1); lines[base+9] = minv*vec4(-b, b,z1,1);
-          lines[base+10] = minv*vec4(z0,-a, a,1); lines[base+11] = minv*vec4(-b,z1, b,1);
-        }
-      }
-    }
-    colors[0] = colors[1] = colors[2] = 0;
-    colors[3] = colors[4] = colors[5] = 1;
-    colors[6] = colors[7] = colors[8] = 2;
-    colors[9] = colors[10] = colors[11] = 3;
-    colors[12] = colors[13] = colors[14] = 4;
-    colors[15] = colors[16] = colors[17] = 5;
-    colors[18] = colors[19] = colors[20] = 5;
-    colors[21] = colors[22] = colors[23] = 6;
-    colors[24] = colors[25] = colors[26] = 6;
-  } else {
-    nlines = 27;
-    lines[0] = minv*vec4(1,-1,0,0); lines[1] = minv*vec4(0,0,1,0);
-    lines[2] = minv*vec4(1,-1,0,0); lines[3] = minv*vec4(0,0,0,1);
-    lines[4] = minv*vec4(1,0,-1,0); lines[5] = minv*vec4(0,1,0,0);
-    lines[6] = minv*vec4(1,0,-1,0); lines[7] = minv*vec4(0,0,0,1);
-    lines[8] = minv*vec4(1,0,0,-1); lines[9] = minv*vec4(0,1,0,0);
-    lines[10] = minv*vec4(1,0,0,-1); lines[11] = minv*vec4(0,0,1,0);
-
-    lines[12] = minv*vec4(0,1,-1,0); lines[13] = minv*vec4(1,0,0,0);
-    lines[14] = minv*vec4(0,1,-1,0); lines[15] = minv*vec4(0,0,0,1);
-    lines[16] = minv*vec4(0,1,0,-1); lines[17] = minv*vec4(1,0,0,0);
-    lines[18] = minv*vec4(0,1,0,-1); lines[19] = minv*vec4(0,0,1,0);
-    lines[20] = minv*vec4(0,0,1,-1); lines[21] = minv*vec4(1,0,0,0);
-    lines[22] = minv*vec4(0,0,1,-1); lines[23] = minv*vec4(0,1,0,0);
-
-    lines[24] = minv*vec4(1,-1,0,0); lines[25] = minv*vec4(0,0,1,-1);
-    lines[26] = minv*vec4(1,0,-1,0); lines[27] = minv*vec4(0,1,0,-1);
-    lines[28] = minv*vec4(1,0,0,-1); lines[29] = minv*vec4(0,1,-1,0);
-
-    lines[30] = minv*vec4(1,PHI,-1,0); lines[31] = minv*vec4(PHI,1,0,-1);
-    lines[32] = minv*vec4(1,PHI,0,-1); lines[33] = minv*vec4(PHI,1,-1,0);
-    lines[34] = minv*vec4(1,-1,PHI,0); lines[35] = minv*vec4(PHI,0,1,-1);
-    lines[36] = minv*vec4(1,0,PHI,-1); lines[37] = minv*vec4(PHI,-1,1,0);
-    lines[38] = minv*vec4(1,-1,0,PHI); lines[39] = minv*vec4(PHI,0,-1,1);
-    lines[40] = minv*vec4(1,0,-1,PHI); lines[41] = minv*vec4(PHI,-1,0,1);
-
-    lines[42] = minv*vec4(-1,1,PHI,0); lines[43] = minv*vec4(0,PHI,1,-1);
-    lines[44] = minv*vec4(0,1,PHI,-1); lines[45] = minv*vec4(-1,PHI,1,0);
-    lines[46] = minv*vec4(-1,1,0,PHI); lines[47] = minv*vec4(0,PHI,-1,1);
-    lines[48] = minv*vec4(0,1,-1,PHI); lines[49] = minv*vec4(-1,PHI,0,1);
-    lines[50] = minv*vec4(-1,0,1,PHI); lines[51] = minv*vec4(0,-1,PHI,1);
-    lines[52] = minv*vec4(0,-1,1,PHI); lines[53] = minv*vec4(-1,0,PHI,1);
-
-    colors[0] = colors[2] = colors[4] = colors[6] = colors[8] = colors[10] = 0;
-    colors[1] = colors[3] = colors[5] = colors[7] = colors[9] = colors[11] = 1;
-    colors[12] = colors[13] = colors[14] = 3;
-    colors[15] = colors[17] = colors[19] = colors[21] = colors[23] = colors[25] = 2;
-    colors[16] = colors[18] = colors[20] = colors[22] = colors[24] = colors[26] = 4;
-  }
-}
-#endif
 
 vec4 getColor(int i) {
   if (i == 0) return vec4(0.5,0.5,1,1);
@@ -469,7 +339,7 @@ vec4 solve(vec4 p, vec4 r, float min) {
   vec3 color;
   color = baseColor.xyz*ambient;
   color += baseColor.xyz*diffuse*(max(0.0,dot(light,normal)));
-  float specular = pow(max(0.0,dot(reflect(light,normal),vec3(r))),10.0);
+  float specular = pow(max(0.0,dot(reflect(light,normal),vec3(r))),5.0);
   color += 0.5*specular*vec3(1.0,1.0,1.0);
   return vec4(sqrt(color),1.0);
 }
@@ -486,21 +356,17 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
 
   float xoffset = params1[2];
   vec2 uv = scale*(fragCoord.xy/iResolution.xy - 0.5);
-  float camera = 4.0+2.0*xoffset; // Opposite to normal OpenGL.
-  vec4 p = vec4(0.0, 0.0, camera,1.0);
-  vec4 r = normalize(vec4(iResolution.x/iResolution.y * uv.x, uv.y, -2.0, 0.0));
+  float camera = 4.0+2.0*xoffset;
+  vec4 p = vec4(0.0, 0.0, -camera,1.0);
+  vec4 r = normalize(vec4(iResolution.x/iResolution.y * uv.x, uv.y, 2.0, 0.0));
   float k = -dot(p,r);
   //k = 0.0;
   p += k*r;
-  float phi = clock0*0.123;
   mat4 rmat = uMatrix;
-  mat3 pmat = mat3(cos(phi), 0.0, -sin(phi),
-                   0.0, 1.0, 0.0,
-                   sin(phi), 0.0, cos(phi));
-  rmat *= mat4(pmat);
-  light *= mat3(rmat);
-  p *= rmat;
-  r *= rmat;
+  light = mat3(rmat) * light;
+  p = rmat * p;
+  r = rmat * r;
+  light.z = -light.z; p.z = -p.z; r.z = -r.z;
   fragColor = solve(p,r,-k);
 }
 

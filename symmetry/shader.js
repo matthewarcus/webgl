@@ -92,10 +92,7 @@
         t[1] = sint*r[1];
         t[2] = sint*r[2];
         t[3] = cost;
-        let qlen = quat.length(q);
-        let tlen = quat.length(t);
-        quat.multiply(q,t,q);
-        //console.log(qlen,tlen,quat.length(q));
+        quat.multiply(q,q,t);
         // Renormalize to ensure we don't drift away
         // from being a unit quaternion.
         quat.normalize(q,q);
@@ -384,28 +381,21 @@
     function moveEvent(clientX,clientY) {
         const w = gl.canvas.clientWidth;
         const h = gl.canvas.clientHeight;
-        const x0 = (moveStartX-0.5*h)/h, y0 = (moveStartY-0.5*h)/h;
-        const x1 = (clientX-0.5*h)/h, y1 = (clientY-0.5*h)/h;
+        // Don't forget, kids, x goes downwards in screen coordinates!
+        const x0 = (-moveStartX+0.5*h)/h, y0 = (moveStartY-0.5*h)/h;
+        const x1 = (-clientX+0.5*h)/h, y1 = (clientY-0.5*h)/h;
         //const r0 = Math.sqrt(x0*x0 + y0*y0);
         //const r1 = Math.sqrt(x1*x1 + y1*y1);
-        //console.log(r0,t0,r1,t1);
-        //qrotate(xQuat,(r1-r0)*Math.sin(t0));
-        //console.log((y1-y0));
-        // Not sure this is quite right, but works OKish.
+        const r = Math.sqrt((x1-x0)*(x1-x0) + (y1-y0)*(y1-y0))
+        if (r < 1e-2) return;
+/*
         qrotate(xQuat,3.0*(y1-y0));
         qrotate(yQuat,3.0*(x1-x0));
-/*
-        const t0 = Math.atan2(y0,x0);
-        const t1 = Math.atan2(y1,x1);
-        qrotate(zQuat,-0.5*(t1-t0));
 */
+        const rQuat = quat.fromValues(-(y1-y0)/r,(x1-x0)/r,0,0);
+        qrotate(rQuat,-3.0*r);
+
         if (started && !running) requestAnimationFrame(drawScene);
-	//rotateEnd.set( event.clientX, event.clientY );
-	//rotateDelta.subVectors( rotateEnd, rotateStart );
-	// rotating across whole screen goes 360 degrees around
-	//scope.rotateLeft( 2 * Math.PI * rotateDelta.x / element.clientWidth * scope.rotateSpeed );
-	// rotating up and down along whole screen attempts to go 360, but limited to 180
-	//scope.rotateUp( 2 * Math.PI * rotateDelta.y / element.clientHeight * scope.rotateSpeed );
 	moveStartX = clientX;
 	moveStartY = clientY;
     }
@@ -445,49 +435,43 @@
     const PAGEUP = 33, PAGEDOWN = 34, LEFT = 37, UP = 38, RIGHT = 39, DOWN = 40;
 
     function keydownHandler( event ) {
-        let handled = false;
         //console.log(event.keyCode);
         const theta = 0.01;
 	switch ( event.keyCode ) {
 	case LEFT:
-            qrotate(zQuat,theta);
-            handled = true;
+            qrotate(zQuat,-theta);
 	    break;
 	case RIGHT:
-            qrotate(zQuat,-theta);
-	    handled = true;
+            qrotate(zQuat,theta);
 	    break;
 	case UP:
             xoffset -= 0.1;
             //qrotate(xQuat,theta);
             //qrotate(yQuat,-theta);
-            handled = true;
 	    break;
 	case DOWN:
             xoffset += 0.1;
             //qrotate(xQuat,-theta);
             //qrotate(yQuat,theta);
-	    handled = true;
 	    break;
 /*
 	case LEFT:
             qrotate(yQuat,theta);
-	    handled = true;
 	    break;
 	case RIGHT:
             qrotate(yQuat,-theta);
-	    handled = true;
 	    break;
 */
+        default:
+            return;
 	}
         if (started && !running) requestAnimationFrame(drawScene);
-        if (handled) event.preventDefault();
+        event.preventDefault();
     }
     function keypressHandler(event) {
         if (!event.ctrlKey) {
             // Ignore event if control key pressed.
             var c = String.fromCharCode(event.charCode)
-            var handled = true;
             const NMAX = 256;
             switch(c) {
             case ' ':
@@ -543,11 +527,10 @@
             case '?': showinfo = !showinfo; setinfo(); break;
             case '!': alert(mkurl()); break;
             default:
-                handled = false;
-                break;
+                return;
             }
             if (started && !running) requestAnimationFrame(drawScene);
-            if (handled) event.preventDefault();
+            event.preventDefault();
         }
     }
     function makeflags() {
@@ -628,8 +611,16 @@
         clock3 %= 3600;
         //var cost = Math.cos(0.1*clock3), sint = Math.sin(0.1*clock3);
         //quat.set(modelQuat,0,0,sint,cost);
+        if (running && (flags & (1<<8))) {
+            qrotate(yQuat,0.2*delta);
+        }
         mat4.fromQuat(modelMatrix,modelQuat);
+        // We apply our matrix to the viewing ray rather than the object
+        //let modelTrans = mat4.create();
+        //mat4.translate(modelTrans,modelTrans,vec3.fromValues(1.0,1.0,0));
+        //mat4.multiply(modelMatrix,modelMatrix,modelTrans);
         //console.log(modelMatrix);
+
         gl.uniformMatrix4fv(gl.getUniformLocation(program, "uMatrix"),
                             false,modelMatrix);
         gl.uniform4f(gl.getUniformLocation(program, "params1"),

@@ -1,6 +1,7 @@
 precision highp float;
-uniform float iGlobalTime;
+uniform vec4 uClock;
 uniform vec2 iResolution;
+uniform mat4 uMatrix;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -25,6 +26,10 @@ bool invert = true;
 
 bool intersectSphere(Sphere s, Ray ray, out Hit hit) {
   vec3 p = s.p;
+  vec3 delta = -(0.3 + normalize(vec3(1,1,1))); // Origin of icosahedron
+  delta.z = -delta.z;
+  p += delta;
+  
   float c = length(p);
   float r = s.r;
   // This inverts the sphere (in the origin).
@@ -86,13 +91,12 @@ vec3 getColor(int i) {
 }
 
 bool intersectScene(Ray r, out Hit hit) {
-  float t = iGlobalTime*0.5;
-  vec3 p = -(0.3 + normalize(vec3(1,1,1))); // Origin of icosahedron
+  float t = uClock[1]*0.5;
   mat3 m = mat3(cos(t),-sin(t),0,sin(t),cos(t),0,0,0,1);
   setVertices();
   bool found = false;
   for (int i = 0; i < 12; i++) {
-    Sphere s = Sphere(0.5, p+m*vertices[i], getColor(colors[i]));
+    Sphere s = Sphere(0.5, m*vertices[i], getColor(colors[i]));
     Hit hits;
     if (intersectSphere(s,r,hits) && (!found || hits.t < hit.t)) {
       hit = hits;
@@ -114,20 +118,24 @@ vec4 solve(Ray r) {
     vec3 n = hit.n;
     if (dot(r.d,n) > 0.0) n *= -1.0;
     vec3 baseColor = hit.color;
-    vec3 color = baseColor.xyz*(ambient+(1.0-ambient)*dot(light,n));
-    float specular = pow(max(0.0,dot(reflect(light,n),r.d)),4.0);
-    color += 0.7*specular*vec3(1.0,1.0,1.0);
+    vec3 color = baseColor.xyz*(ambient+diffuse*max(0.0,dot(light,n)));
+    float specular = pow(max(0.0,dot(reflect(light,n),r.d)),5.0);
+    color += 0.5*specular*vec3(1.0,1.0,1.0);
     return vec4(sqrt(color),1.0);
   }
 }
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
-  light = normalize(vec3(0.0,1.0,1.0));
-  ambient = 0.6;
+  light = normalize(vec3(0.0,1.0,-1.0));
+  ambient = 0.5;
   diffuse = 1.0-ambient;
   vec2 uv = 2.0*fragCoord.xy/iResolution.xy - 1.0;
-  vec3 p = vec3(-0.5, -1.0, 6.0);
-  vec3 d = normalize(vec3(iResolution.x/iResolution.y * uv.x, uv.y, -3));
+  vec3 p = vec3(0,0,-6.0);
+  vec3 d = normalize(vec3(iResolution.x/iResolution.y * uv.x, uv.y, 3));
+  p = mat3(uMatrix) * p;
+  d = mat3(uMatrix) * d;
+  p += vec3(-0.5,-0.5,0);
+  light = mat3(uMatrix) * light;
   fragColor = solve(Ray(p,d));
 }
 

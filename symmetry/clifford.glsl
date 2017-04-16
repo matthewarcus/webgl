@@ -376,24 +376,19 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
 
   // Set matrices
   float theta = 0.1*clock1;
-  float phi = 0.1234*clock0;
   {
     // Quaternion rotation about dir
     vec3 dir = normalize(vec3(0,1,0));
     m = qmat(vec4(-sin(theta)*dir,cos(theta)));
     minv = qmat(vec4(sin(theta)*dir,cos(theta)));
   }
-  // model rotation about y axis
-  mat3 rmat = mat3(cos(phi),0,-sin(phi),
-                   0,1,0,
-                   sin(phi),0,cos(phi));
   float t = infinity;
   int color = -1;
   // Move the camera & ray into model coordinates
-  p = mat3(uMatrix) * p;
-  r = mat3(uMatrix) * r;
-  p = rmat*p;
-  r = rmat*r;
+  // Life is easier if we do the multiplication in the normal order.
+  p = vec3(uMatrix * vec4(p,1));
+  r = vec3(uMatrix * vec4(r,0));
+
   if (solve(p,r,0,t)) color = 0;
   if (solve(p,r,1,t)) color = 1;
   vec3 q = p+t*r;
@@ -435,8 +430,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
     } else {
       baseColor = getMapColor(q,color);
     }
-    //light = mat3(uMatrix) * light;
-    light = rmat*light;
+    light *= mat3(uMatrix);
     vec3 color = baseColor.xyz*(ambient+diffuse*max(0.0,dot(light,normal)));
     float specular = pow(max(0.0,dot(reflect(light,normal),r)),4.0);
     color += 0.5*specular*vec3(1.0,1.0,1.0);
