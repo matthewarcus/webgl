@@ -132,7 +132,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
   vec2 uv = 2.0*fragCoord.xy/iResolution.xy - 1.0;
   vec3 p = vec3(0,0,-6.0);
   vec3 d = normalize(vec3(iResolution.x/iResolution.y * uv.x, uv.y, 3));
-  p = mat3(uMatrix) * p;
+  p = vec3(uMatrix * vec4(p,1));
   d = mat3(uMatrix) * d;
   p += vec3(-0.5,-0.5,0);
   light = mat3(uMatrix) * light;

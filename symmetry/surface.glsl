@@ -650,7 +650,7 @@ void main(void) {
   light = normalize(vec3(0.5,1,-1));
 
   // Projection parameters
-  float camera = 10.0+5.0*params1[2];
+  float camera = 10.0;
   float xscale = params1[0];       // Width multiplier
   float yscale = params1[1];       // Height multiplier
   // Make sure width and height are even to keep

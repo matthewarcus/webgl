@@ -72,6 +72,7 @@
     
     let xoffset = 0;
     let yoffset = 0;
+    let zoffset = 0;
     let uoffset = 0;
     let voffset = 0;
     let clock0 = 0;
@@ -445,12 +446,12 @@
             qrotate(zQuat,theta);
 	    break;
 	case UP:
-            xoffset -= 0.1;
+            zoffset -= 0.1;
             //qrotate(xQuat,theta);
             //qrotate(yQuat,-theta);
 	    break;
 	case DOWN:
-            xoffset += 0.1;
+            zoffset += 0.1;
             //qrotate(xQuat,-theta);
             //qrotate(yQuat,theta);
 	    break;
@@ -609,17 +610,15 @@
         clock1 %= 3600;
         clock2 %= 3600;
         clock3 %= 3600;
-        //var cost = Math.cos(0.1*clock3), sint = Math.sin(0.1*clock3);
-        //quat.set(modelQuat,0,0,sint,cost);
         if (running && (flags & (1<<8))) {
             qrotate(yQuat,0.1*delta);
         }
         mat4.fromQuat(modelMatrix,modelQuat);
+
         // We apply our matrix to the viewing ray rather than the object
-        //let modelTrans = mat4.create();
-        //mat4.translate(modelTrans,modelTrans,vec3.fromValues(1.0,1.0,0));
-        //mat4.multiply(modelMatrix,modelMatrix,modelTrans);
-        //console.log(modelMatrix);
+        let modelTrans = mat4.create();
+        mat4.translate(modelTrans,modelTrans,vec3.fromValues(0,0,-3*zoffset));
+        mat4.multiply(modelMatrix,modelMatrix,modelTrans);
 
         gl.uniformMatrix4fv(gl.getUniformLocation(program, "uMatrix"),
                             false,modelMatrix);
@@ -628,7 +627,7 @@
         gl.uniform4f(gl.getUniformLocation(program, "params2"),
                      ulimit,vlimit,rrepeat,kfact);
         gl.uniform4f(gl.getUniformLocation(program, "params3"),
-                     bfact,0,0,0);
+                     bfact,zoffset,0,0);
         gl.uniform4f(gl.getUniformLocation(program, "uClock"),
                      clock0,clock1,clock2,clock3);
         gl.uniform4i(gl.getUniformLocation(program, "iParams"),

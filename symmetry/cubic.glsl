@@ -354,9 +354,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
   ambient = 0.4;
   diffuse = 1.0-ambient;
 
-  float xoffset = params1[2];
   vec2 uv = scale*(fragCoord.xy/iResolution.xy - 0.5);
-  float camera = 4.0+2.0*xoffset;
+  float camera = 4.0;
   vec4 p = vec4(0.0, 0.0, -camera,1.0);
   vec4 r = normalize(vec4(iResolution.x/iResolution.y * uv.x, uv.y, 2.0, 0.0));
   float k = -dot(p,r);

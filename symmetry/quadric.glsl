@@ -35,10 +35,11 @@ uniform vec4 uClock;
 uniform sampler2D uSampler;
 uniform sampler2D uNoise;
 uniform samplerCube uCubeMap;
+uniform mat4 uMatrix;
 varying vec2 vTextureCoord;
 
-float clock0;
 float clock1;
+float clock2;
 float coffset;
 int ftype;
 int stype;
@@ -48,7 +49,7 @@ int ctype;
 const vec3 defaultColor = vec3(0.8,1.0,0.8);
 //const vec3 defaultColor = vec3(1.0,0.5,0.0);
 //const vec3 defaultColor = vec3(0.2,0.1,0.1);
-const vec3 light = vec3(0.0,0.707,-0.707);
+vec3 light;
 
 bool colorswap = false;
 bool applyGamma = false;
@@ -73,14 +74,6 @@ int mix(int seed, int n) {
   seed += seed/512;
   seed += seed*2;
   return seed;
-}
-
-vec4 rotate(vec4 p, float k) {
-  float theta = k*0.2*clock0;
-  float x = cos(theta)*p.x - sin(theta)*p.z;
-  float z = sin(theta)*p.x + cos(theta)*p.z;
-  p.x = x; p.z = z;
-  return p;
 }
 
 bool nextbit(inout int n) {
@@ -228,19 +221,18 @@ void solve(vec3 p, vec3 r) {
   //vec4 rot = normalize(vec4(1.0,2.0,3.0,4.0));
   // Pretty arbitrary rotation axis
   vec4 rot = normalize(vec4(1.0,1.0,1.0,0.0));
-  rot = exp(rot,0.1*clock0);
+  rot = exp(rot,0.1*clock2);
   // The quadric parameters
   vec3 trans = vec3(0.0,0.0,0.0);
   vec3 P,Q;
   float R;
   if (stype == 0) {
-    //vec3 P = vec3(0.0,cos(clock1),sin(clock1));
     // Hyperbolic paraboloid & hyperboloid
-    P = vec3(1.0,-1.0,sin(clock1));
+    P = vec3(1.0,-1.0,sin(0.3*clock1));
     Q = vec3(0.0,0.0,-1.0);
     R = 0.0;
   } else if (stype == 1) {
-    P = vec3(sin(clock1),2.0,3.0);
+    P = vec3(sin(0.3*clock1),2.0,3.0);
     Q = vec3(1.0,0.0,0.0);
     R = -1.0;
   } else if (stype == 2) {
@@ -334,29 +326,6 @@ void solve(vec3 p, vec3 r) {
   //gl_FragDepthEXT = 0.5;
 }
 
-void main(void) {
-  int flags = iParams[0];
-  nextbit(flags);
-  colorswap = nextbit(flags);
-  applyGamma = nextbit(flags);
-  addNoise = nextbit(flags);
-
-  ftype = iParams[1];
-  stype = iParams[2];
-  ctype = iParams[3];
-
-  clock0 = uClock[0];
-  clock1 = uClock[1];
-  coffset = params2[2]; //rrepeat
-
-  float xscale = params1[0];       // Width multiplier
-  float yscale = params1[1];       // Height multiplier
-  float x = 2.0*(vTextureCoord[0]-0.5)*xscale; // + 2.0*xoffset;
-  float y = 2.0*(vTextureCoord[1]-0.5)*yscale; // + 2.0*yoffset;
-  float z = 0.0;
-
-  float camera = -10.0; // Use OpenGL coords - -z is towards viewer
-
 #if 0
   seed = int(gl_FragCoord.x*100.0 + gl_FragCoord.y);
   //seed += int(1234.0*gl_FragCoord.x);
@@ -366,14 +335,40 @@ void main(void) {
   vec4 noise = texture2D(uNoise, vTextureCoord);
   seed += int(1000000.0*noise.r);
 #endif
-  float x0 = 0.0-0.0, y0 = 0.0+0.0, z0 = camera;
-  float a = x-x0;
-  float b = y-y0;
-  float c = z-z0;
-  float r = sqrt(a*a + b*b + c*c);
-  a /= r; b /= r; c /= r;
+
+void main(void) {
+  int flags = iParams[0];
+  nextbit(flags);
+  colorswap = nextbit(flags);
+  applyGamma = nextbit(flags);
+  addNoise = nextbit(flags);
+
+  light = vec3(0.0,0.707,-0.707);
+  
+  ftype = iParams[1];
+  stype = iParams[2];
+  ctype = iParams[3];
+
+  clock1 = uClock[1];
+  clock2 = uClock[2];
+  coffset = params2[2]; //rrepeat
+
+  float xscale = params1[0];       // Width multiplier
+  float yscale = params1[1];       // Height multiplier
+  float x = 2.0*(vTextureCoord[0]-0.5)*xscale; // + 2.0*xoffset;
+  float y = 2.0*(vTextureCoord[1]-0.5)*yscale; // + 2.0*yoffset;
+  float z = 0.0;
+
+  float camera = 10.0; // Use OpenGL coords - -z is towards viewer
+
+  vec3 p = vec3(0,0,-camera);
+  vec3 r = normalize(vec3(x,y,camera));
+  p = vec3(uMatrix*vec4(p,1));
+  r = vec3(uMatrix*vec4(r,0));
+  light = vec3(uMatrix*vec4(light,0));
+
   // Could move ray start to radius limit.
-  solve(vec3(x0,y0,z0),vec3(a,b,c));
+  solve(p,r);
 }
 
 // (1,1,1), (0,0,0), -1  // sphere
