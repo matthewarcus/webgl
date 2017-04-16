@@ -612,7 +612,7 @@
         //var cost = Math.cos(0.1*clock3), sint = Math.sin(0.1*clock3);
         //quat.set(modelQuat,0,0,sint,cost);
         if (running && (flags & (1<<8))) {
-            qrotate(yQuat,0.2*delta);
+            qrotate(yQuat,0.1*delta);
         }
         mat4.fromQuat(modelMatrix,modelQuat);
         // We apply our matrix to the viewing ray rather than the object

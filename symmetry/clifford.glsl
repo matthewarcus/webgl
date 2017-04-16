@@ -430,7 +430,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
     } else {
       baseColor = getMapColor(q,color);
     }
-    light *= mat3(uMatrix);
+    light = mat3(uMatrix)*light; // Order!
     vec3 color = baseColor.xyz*(ambient+diffuse*max(0.0,dot(light,normal)));
     float specular = pow(max(0.0,dot(reflect(light,normal),r)),4.0);
     color += 0.5*specular*vec3(1.0,1.0,1.0);
