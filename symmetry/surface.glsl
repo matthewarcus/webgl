@@ -146,6 +146,19 @@ float Quadratic(vec4 P) {
 float A2(vec4 P) {
    float x = P.w, y = P.y, z = P.z, w = P.x;
   return w*w*w + x*y*z;
+
+float Heart0(vec4 p) {
+  float x = p.z; float y = p.y;
+  float z = p.x; float w = p.w;
+  float k = 2.0*x*x + 2.0*y*y + z*z -1.0;
+  return k*k*k - 0.1*x*x*z*z*z - y*y*z*z*z;
+}
+
+float Heart(vec4 p) {
+  float x = p.x; float y = p.z;
+  float z = p.y; float w = p.w;
+  float k = x*x + 9.0/4.0*y*y + z*z -1.0;
+  return k*k*k - x*x*z*z*z - 9.0/80.0*y*y*z*z*z;
 }
 
 float Sphere(vec4 p) {
@@ -399,6 +412,7 @@ float Fun(vec4 p) {
   //return Sphere(p);
   //return Quadratic(p);
   //return A2(p);
+  //return Heart(p);
   if (stype == 0) return Labs(p);
   else if (stype == 1) return Barth(p);
   else if (stype == 2) return Endrass8(p);
