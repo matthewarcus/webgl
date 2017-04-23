@@ -84,6 +84,17 @@
     var modelMatrix = mat4.create();
     var modelQuat = quat.create();
     var tmpQuat = quat.create();
+    // Quaternion multiplication as a matrix.
+    // 4th coordinate is real element of quaternion
+    function qmat(out, q) {
+        let x = q[0], y = q[1], z = q[2], t = q[3];
+        mat4.set(out,
+                 t,-z, y, x, 
+                 z, t,-x, y,
+                 -y, x, t, z,
+                 -x,-y,-z, t );
+    }
+
     function qrotate(r,theta) {
         const cost = Math.cos(theta);
         const sint = Math.sin(theta);
@@ -222,6 +233,7 @@
                 },false);
 */
 	        window.addEventListener( 'mousedown', onMouseDown, false );
+	        window.addEventListener( 'wheel', onMouseWheel, false );
 /*
 	        window.addEventListener( 'touchstart', onTouchStart, false );
 	        window.addEventListener( 'touchmove', onTouchMove, false );
@@ -399,6 +411,13 @@
         if (started && !running) requestAnimationFrame(drawScene);
 	moveStartX = clientX;
 	moveStartY = clientY;
+    }
+    function onMouseWheel( event ) {
+	event.preventDefault();
+        //console.log(event.deltaMode,event.deltaX,event.deltaY,event.deltaZ);
+        if (event.deltaY > 0) zoffset += 0.1;
+        else if (event.deltaY < 0) zoffset -= 0.1;
+        if (started && !running) requestAnimationFrame(drawScene);
     }
     function onMouseDown( event ) {
 	event.preventDefault();
@@ -614,11 +633,15 @@
             qrotate(yQuat,0.1*delta);
         }
         mat4.fromQuat(modelMatrix,modelQuat);
-
+        //qmat(modelMatrix,modelQuat);
+        
         // We apply our matrix to the viewing ray rather than the object
         let modelTrans = mat4.create();
         mat4.translate(modelTrans,modelTrans,vec3.fromValues(0,0,-3*zoffset));
         mat4.multiply(modelMatrix,modelMatrix,modelTrans);
+        //mat4.identity(modelTrans);
+        //mat4.translate(modelTrans,modelTrans,vec3.fromValues(xoffset,yoffset,0));
+        //mat4.multiply(modelMatrix,modelTrans,modelMatrix);
 
         gl.uniformMatrix4fv(gl.getUniformLocation(program, "uMatrix"),
                             false,modelMatrix);

@@ -103,8 +103,8 @@ void init() {
 const vec3 defaultColor = vec3(0.8,1.0,0.8);
 const vec3 light0 = vec3(0.0,0.707,-0.707);
 vec3 light; // Rotated light goes here
-const float ambient = 0.5;
-const float diffuse = 1.0-ambient;
+const float ambient = 0.3;
+const float diffuse = 0.5;
 bool applyGamma = false;
 
 vec3 getColor(int face) {
@@ -283,6 +283,11 @@ vec3 solve(vec3 p, vec3 r) {
   vec3 baseColor;
   if (ctype == 0) {
     baseColor = texture2D(uSampler,uv0).rgb;
+    if (applyGamma) {
+      baseColor.r = pow(baseColor.r,2.2);
+      baseColor.g = pow(baseColor.g,2.2);
+      baseColor.b = pow(baseColor.b,2.2);
+    }
   } else if (ctype == 1) {
     baseColor = getColor(type);
   } else {
@@ -291,12 +296,19 @@ vec3 solve(vec3 p, vec3 r) {
   if (dot(r,n) > 0.0) {
     n *= -1.0;
   }
-        
-  vec3 color = baseColor.xyz*(ambient+diffuse*max(0.0,dot(light,n)));
-  float specular = pow(max(0.0,dot(reflect(light,n),r)),4.0);
-  color += 0.5*specular*vec3(1.0,1.0,1.0);
-  //color += 0.5*specular*baseColor.xyz;
-  if (applyGamma) color = sqrt(color);
+
+  vec3 color = baseColor.xyz*ambient;
+  if (dot(light,n) > 0.0) {
+    color += baseColor.xyz*diffuse*dot(light,n);
+    float specular = pow(max(0.0,dot(reflect(light,n),r)),10.0);
+    color += 0.5*specular*vec3(1.0,1.0,1.0);
+    //color += 0.5*specular*baseColor.xyz;
+  }
+  if (applyGamma) {
+    color.r = pow(color.r,1.0/2.2);
+    color.g = pow(color.g,1.0/2.2);
+    color.b = pow(color.b,1.0/2.2);
+  }
   return color;
 }
 
@@ -318,14 +330,14 @@ void main()
   //float yscale = params1[1];       // Height multiplier
   float width = float(uWindow[0]);
   float height = float(uWindow[1]);
-  float camera = 10.0+5.0*params1[2];
+  float camera = 10.0;
   float x = xscale*(gl_FragCoord.x - 0.5*width)/width;
   float y = xscale*(gl_FragCoord.y - 0.5*height)/width;
   vec3 p = vec3(0.0, 0.0, -camera); // Eye position
   vec3 r = normalize(vec3(x, y, 1.0)); // Ray
 
   light = light0;
-  p = mat3(uMatrix) * p;
+  p = vec3(uMatrix * vec4(p,1));
   r = mat3(uMatrix) * r;
   light = mat3(uMatrix) * light;
 

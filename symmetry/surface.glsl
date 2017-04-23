@@ -146,6 +146,7 @@ float Quadratic(vec4 P) {
 float A2(vec4 P) {
    float x = P.w, y = P.y, z = P.z, w = P.x;
   return w*w*w + x*y*z;
+}
 
 float Heart0(vec4 p) {
   float x = p.z; float y = p.y;
