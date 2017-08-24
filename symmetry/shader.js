@@ -30,7 +30,7 @@
     let setupshader;
 
     let vertexBuffer;
-    let showinfo = true;
+    let showinfo = false;
 
     let running = false;
     let started = false;
@@ -108,6 +108,8 @@
         // Renormalize to ensure we don't drift away
         // from being a unit quaternion.
         quat.normalize(q,q);
+        // Or use this slightly faster method
+        //quat.scale(q,q,2/(1+quat.dot(q,q)));
     }
     var xQuat = quat.fromValues(1,0,0,0);
     var yQuat = quat.fromValues(0,1,0,0);
@@ -234,11 +236,11 @@
 */
 	        window.addEventListener( 'mousedown', onMouseDown, false );
 	        window.addEventListener( 'wheel', onMouseWheel, false );
-/*
+
 	        window.addEventListener( 'touchstart', onTouchStart, false );
 	        window.addEventListener( 'touchmove', onTouchMove, false );
 	        window.addEventListener( 'touchend', onTouchEnd, false );
-*/
+
                 window.addEventListener("keydown",keydownHandler,false);
                 window.addEventListener("keypress",keypressHandler,false);
                 window.addEventListener("resize",function () {
@@ -488,11 +490,11 @@
         if (started && !running) requestAnimationFrame(drawScene);
         event.preventDefault();
     }
+    const NMAX = 256;
     function keypressHandler(event) {
         if (!event.ctrlKey) {
             // Ignore event if control key pressed.
             var c = String.fromCharCode(event.charCode)
-            const NMAX = 256;
             switch(c) {
             case ' ':
                 running = !running;
@@ -728,8 +730,9 @@
 
     function renderScene(delta) {
         initProgram(delta);
-        framenumber++;
-        if (progressive) {
+        if (!progressive) {
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        } else {
             gl.enable(gl.BLEND);
             gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
             gl.blendEquation(gl.FUNC_ADD);
@@ -785,8 +788,8 @@
             canvas.height = height;
             framenumber = 0;
         }
+        framenumber++; // Used for progressive blending, so ensure > 0
         gl.viewport(0,0,canvas.width,canvas.height);
-        if (!progressive) gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         renderScene(delta/1000); // Time since last render in seconds
     }
 
