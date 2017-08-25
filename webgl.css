@@ -2,13 +2,13 @@
 body {
     overflow: hidden; /* No scrollbars */
     margin: 0;
+    touch-action: none;
 }
 canvas {
     display: block;
     width: 100vw;
     height: 100vh;
     xbackground: red;
-    touch-action: none;
 }
 #info,#help {
     position: absolute;
