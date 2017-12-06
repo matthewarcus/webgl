@@ -221,10 +221,10 @@ vec4 solve(vec3 p, vec3 r, float min) {
   float t = 1e10;
   if (surface(vec4(p,1),vec4(r,0),min,t,normal)) {
     colorindex = 0;
-    vec4 q = vec4(p+t*r,1);
+    vec4 q = m4*vec4(p+t*r,1);
     for (int i = 0; i < NLINES; i++) {
-      vec4 p = m4inv*lines[2*i];
-      vec4 r = m4inv*lines[2*i+1];
+      vec4 p = lines[2*i];
+      vec4 r = lines[2*i+1];
       if (abs(p.w) < abs(r.w)) {
         tryline(q,r,p,colors[i]);
       } else {
