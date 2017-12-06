@@ -192,7 +192,7 @@ bool surface(vec4 p0, vec4 r0, float min, inout float t0, out vec3 normal) {
     
 // Find the distance to the line in R3
 void tryline(vec4 q, vec4 p, vec4 r, int color) {
-  const float u = 0.025;
+  const float u = 0.1; //0.025;
   const float u2 = u*u;
   if (abs(p.w) < 1e-2) return;
    r = p.w*r - r.w*p; // r.w = 0
