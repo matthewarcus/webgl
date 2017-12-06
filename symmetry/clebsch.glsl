@@ -1,4 +1,4 @@
-precision lowp float;
+precision highp float;
 uniform float iGlobalTime;
 uniform vec2 iResolution;
 
