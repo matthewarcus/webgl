@@ -8,7 +8,8 @@ const float PI =  3.141592654;
 const float PHI = 1.618033989;
 const vec4 I = vec4(1,1,1,1);
 const vec3 AXIS = vec3(1,1,1); // axis for rotation
-const int NLINES = 27;
+//const int NLINES = 27;
+const int NLINES = 12;
 vec4 lines[NLINES*2];
 int colors[NLINES];
 
@@ -93,6 +94,7 @@ void initlines() {
   lines[8] =  vec4(1,0,0,-1); lines[9] =  vec4(0,1,0,0);
   lines[10] = vec4(1,0,0,-1); lines[11] = vec4(0,0,1,0);
 
+#if 0
   lines[12] = vec4(0,1,-1,0); lines[13] = vec4(1,0,0,0);
   lines[14] = vec4(0,1,-1,0); lines[15] = vec4(0,0,0,1);
   lines[16] = vec4(0,1,0,-1); lines[17] = vec4(1,0,0,0);
@@ -117,15 +119,18 @@ void initlines() {
   lines[46] = vec4(0,1,-1,PHI); lines[47] = vec4(-1,PHI,0,1);
   lines[50] = vec4(-1,0,1,PHI); lines[51] = vec4(0,-1,PHI,1);
   lines[52] = vec4(0,-1,1,PHI); lines[53] = vec4(-1,0,PHI,1);
+#endif
 
   colors[0] = colors[5] = colors[9] = 5;
   colors[1] = colors[3] = colors[7] = 2;
   colors[2] = colors[4] = colors[11] = 7;
   colors[6] = colors[8] = colors[10] = 4;
+#if 0
   colors[12] = colors[13] = colors[14] = 6;
   // This colouring shows a "double six" for 12 lines.
   colors[15] = colors[17] = colors[19] = colors[21] = colors[23] = colors[25] = 1;
   colors[16] = colors[18] = colors[20] = colors[22] = colors[24] = colors[26] = 3;
+#endif
 }
 
 vec4 getColor(int i) {
