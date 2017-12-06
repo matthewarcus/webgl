@@ -9,7 +9,7 @@ const float PHI = 1.618033989;
 const vec4 I = vec4(1,1,1,1);
 const vec3 AXIS = vec3(1,1,1); // axis for rotation
 //const int NLINES = 27;
-const int NLINES = 12;
+const int NLINES = 6;
 vec4 lines[NLINES*2];
 int colors[NLINES];
 
