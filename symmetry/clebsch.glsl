@@ -221,6 +221,7 @@ vec4 solve(vec3 p, vec3 r, float min) {
   float t = 1e10;
   if (surface(vec4(p,1),vec4(r,0),min,t,normal)) {
     colorindex = 0;
+    d2best = 0;
     vec4 q = vec4(p+t*r,1);
     for (int i = 0; i < NLINES; i++) {
       vec4 p = m4inv*lines[2*i];
