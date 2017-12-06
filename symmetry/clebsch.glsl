@@ -214,9 +214,10 @@ vec4 solve(vec3 p, vec3 r, float min) {
   vec3 normal = vec3(1,0,0);
   float theta = iGlobalTime*0.1; 
   vec3 a = normalize(AXIS);
-  m4 = qmat(vec4(sin(theta)*a,cos(theta)));
-  m4inv = qmat(vec4(sin(-theta)*a,cos(-theta)));
-  initlines();
+  float st = sin(theta);
+  float ct = cos(theta);
+  m4 = qmat(vec4(st*a,ct));
+  m4inv = qmat(vec4(-st*a,ct));
 
   float t = 1e10;
   if (surface(vec4(p,1),vec4(r,0),min,t,normal)) {
@@ -249,6 +250,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
   light = normalize(vec3(0.0,1.0,-1.0));
   ambient = 0.6;
   diffuse = 1.0-ambient;
+
+  initlines();
 
   vec2 uv = 2.0*fragCoord.xy/iResolution.xy - 1.0;
   vec3 p = vec3(0.0, 0.0, 6.0);
