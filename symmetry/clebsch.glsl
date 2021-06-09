@@ -9,6 +9,7 @@ const float PHI = 1.618033989;
 const vec4 I = vec4(1,1,1,1);
 const vec3 AXIS = vec3(1,1,1); // axis for rotation
 const int NLINES = 27;
+//const int NLINES = 6;
 vec4 lines[NLINES*2];
 int colors[NLINES];
 
@@ -86,38 +87,41 @@ int cubic(float A, float B, float C, float D, out vec3 x) {
 
 // Initialize array of lines & colors
 void initlines() {
-  lines[0] =  m4inv*vec4(1,-1,0,0); lines[1] =  m4inv*vec4(0,0,1,0);
-  lines[2] =  m4inv*vec4(1,-1,0,0); lines[3] =  m4inv*vec4(0,0,0,1);
-  lines[4] =  m4inv*vec4(1,0,-1,0); lines[5] =  m4inv*vec4(0,1,0,0);
-  lines[6] =  m4inv*vec4(1,0,-1,0); lines[7] =  m4inv*vec4(0,0,0,1);
-  lines[8] =  m4inv*vec4(1,0,0,-1); lines[9] =  m4inv*vec4(0,1,0,0);
-  lines[10] = m4inv*vec4(1,0,0,-1); lines[11] = m4inv*vec4(0,0,1,0);
+  lines[0] =  vec4(1,-1,0,0); lines[1] =  vec4(0,0,1,0);
+  lines[2] =  vec4(1,-1,0,0); lines[3] =  vec4(0,0,0,1);
+  lines[4] =  vec4(1,0,-1,0); lines[5] =  vec4(0,1,0,0);
+  lines[6] =  vec4(1,0,-1,0); lines[7] =  vec4(0,0,0,1);
+  lines[8] =  vec4(1,0,0,-1); lines[9] =  vec4(0,1,0,0);
+  lines[10] = vec4(1,0,0,-1); lines[11] = vec4(0,0,1,0);
 
-  lines[12] = m4inv*vec4(0,1,-1,0); lines[13] = m4inv*vec4(1,0,0,0);
-  lines[14] = m4inv*vec4(0,1,-1,0); lines[15] = m4inv*vec4(0,0,0,1);
-  lines[16] = m4inv*vec4(0,1,0,-1); lines[17] = m4inv*vec4(1,0,0,0);
-  lines[18] = m4inv*vec4(0,1,0,-1); lines[19] = m4inv*vec4(0,0,1,0);
-  lines[20] = m4inv*vec4(0,0,1,-1); lines[21] = m4inv*vec4(1,0,0,0);
-  lines[22] = m4inv*vec4(0,0,1,-1); lines[23] = m4inv*vec4(0,1,0,0);
+#if 1
+  lines[12] = vec4(0,1,-1,0); lines[13] = vec4(1,0,0,0);
+  lines[14] = vec4(0,1,-1,0); lines[15] = vec4(0,0,0,1);
+  lines[16] = vec4(0,1,0,-1); lines[17] = vec4(1,0,0,0);
+  lines[18] = vec4(0,1,0,-1); lines[19] = vec4(0,0,1,0);
+  lines[20] = vec4(0,0,1,-1); lines[21] = vec4(1,0,0,0);
+  lines[22] = vec4(0,0,1,-1); lines[23] = vec4(0,1,0,0);
 
-  lines[24] = m4inv*vec4(1,-1,0,0); lines[25] = m4inv*vec4(0,0,1,-1);
-  lines[26] = m4inv*vec4(1,0,-1,0); lines[27] = m4inv*vec4(0,1,0,-1);
-  lines[28] = m4inv*vec4(1,0,0,-1); lines[29] = m4inv*vec4(0,1,-1,0);
+  lines[24] = vec4(1,-1,0,0); lines[25] = vec4(0,0,1,-1);
+  lines[26] = vec4(1,0,-1,0); lines[27] = vec4(0,1,0,-1);
+  lines[28] = vec4(1,0,0,-1); lines[29] = vec4(0,1,-1,0);
 
-  lines[30] = m4inv*vec4(1,PHI,-1,0); lines[31] = m4inv*vec4(PHI,1,0,-1);
-  lines[32] = m4inv*vec4(1,PHI,0,-1); lines[33] = m4inv*vec4(PHI,1,-1,0);
-  lines[34] = m4inv*vec4(1,0,PHI,-1); lines[35] = m4inv*vec4(PHI,-1,1,0);
-  lines[36] = m4inv*vec4(1,-1,PHI,0); lines[37] = m4inv*vec4(PHI,0,1,-1);
-  lines[38] = m4inv*vec4(1,-1,0,PHI); lines[39] = m4inv*vec4(PHI,0,-1,1);
-  lines[40] = m4inv*vec4(1,0,-1,PHI); lines[41] = m4inv*vec4(PHI,-1,0,1);
+  lines[30] = vec4(1,PHI,-1,0); lines[31] = vec4(PHI,1,0,-1);
+  lines[32] = vec4(1,PHI,0,-1); lines[33] = vec4(PHI,1,-1,0);
+  lines[34] = vec4(1,0,PHI,-1); lines[35] = vec4(PHI,-1,1,0);
+  lines[36] = vec4(1,-1,PHI,0); lines[37] = vec4(PHI,0,1,-1);
+  lines[38] = vec4(1,-1,0,PHI); lines[39] = vec4(PHI,0,-1,1);
+  lines[40] = vec4(1,0,-1,PHI); lines[41] = vec4(PHI,-1,0,1);
 
-  lines[42] = m4inv*vec4(-1,1,PHI,0); lines[43] = m4inv*vec4(0,PHI,1,-1);
-  lines[44] = m4inv*vec4(0,1,PHI,-1); lines[45] = m4inv*vec4(-1,PHI,1,0);
-  lines[48] = m4inv*vec4(-1,1,0,PHI); lines[49] = m4inv*vec4(0,PHI,-1,1);
-  lines[46] = m4inv*vec4(0,1,-1,PHI); lines[47] = m4inv*vec4(-1,PHI,0,1);
-  lines[50] = m4inv*vec4(-1,0,1,PHI); lines[51] = m4inv*vec4(0,-1,PHI,1);
-  lines[52] = m4inv*vec4(0,-1,1,PHI); lines[53] = m4inv*vec4(-1,0,PHI,1);
+  lines[42] = vec4(-1,1,PHI,0); lines[43] = vec4(0,PHI,1,-1);
+  lines[44] = vec4(0,1,PHI,-1); lines[45] = vec4(-1,PHI,1,0);
+  lines[48] = vec4(-1,1,0,PHI); lines[49] = vec4(0,PHI,-1,1);
+  lines[46] = vec4(0,1,-1,PHI); lines[47] = vec4(-1,PHI,0,1);
+  lines[50] = vec4(-1,0,1,PHI); lines[51] = vec4(0,-1,PHI,1);
+  lines[52] = vec4(0,-1,1,PHI); lines[53] = vec4(-1,0,PHI,1);
+#endif
 
+#if 1
   colors[0] = colors[5] = colors[9] = 5;
   colors[1] = colors[3] = colors[7] = 2;
   colors[2] = colors[4] = colors[11] = 7;
@@ -126,6 +130,7 @@ void initlines() {
   // This colouring shows a "double six" for 12 lines.
   colors[15] = colors[17] = colors[19] = colors[21] = colors[23] = colors[25] = 1;
   colors[16] = colors[18] = colors[20] = colors[22] = colors[24] = colors[26] = 3;
+#endif
 }
 
 vec4 getColor(int i) {
@@ -192,7 +197,7 @@ bool surface(vec4 p0, vec4 r0, float min, inout float t0, out vec3 normal) {
     
 // Find the distance to the line in R3
 void tryline(vec4 q, vec4 p, vec4 r, int color) {
-  const float u = 0.025;
+  const float u = 0.1; //0.025;
   const float u2 = u*u;
   if (abs(p.w) < 1e-2) return;
    r = p.w*r - r.w*p; // r.w = 0
@@ -209,17 +214,19 @@ vec4 solve(vec3 p, vec3 r, float min) {
   vec3 normal = vec3(1,0,0);
   float theta = iGlobalTime*0.1; 
   vec3 a = normalize(AXIS);
-  m4 = qmat(vec4(sin(theta)*a,cos(theta)));
-  m4inv = qmat(vec4(sin(-theta)*a,cos(-theta)));
-  initlines();
+  float st = sin(theta);
+  float ct = cos(theta);
+  m4 = qmat(vec4(st*a,ct));
+  m4inv = qmat(vec4(-st*a,ct));
 
   float t = 1e10;
   if (surface(vec4(p,1),vec4(r,0),min,t,normal)) {
     colorindex = 0;
+    d2best = 1e10;
     vec4 q = vec4(p+t*r,1);
     for (int i = 0; i < NLINES; i++) {
-      vec4 p = lines[2*i];
-      vec4 r = lines[2*i+1];
+      vec4 p = m4inv*lines[2*i];
+      vec4 r = m4inv*lines[2*i+1];
       if (abs(p.w) < abs(r.w)) {
         tryline(q,r,p,colors[i]);
       } else {
@@ -243,6 +250,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
   light = normalize(vec3(0.0,1.0,-1.0));
   ambient = 0.6;
   diffuse = 1.0-ambient;
+
+  initlines();
 
   vec2 uv = 2.0*fragCoord.xy/iResolution.xy - 1.0;
   vec3 p = vec3(0.0, 0.0, 6.0);
