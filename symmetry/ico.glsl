@@ -1,3 +1,4 @@
+#version 300 es
 // The MIT License (MIT)
 
 // Copyright (c) 2017 Matthew Arcus
@@ -20,31 +21,27 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-// Contains functions computing polynomial for various surfaces
-// taken from Abdelaziz Nait Merzouk's Fragmentarium shaders.
-// https://plus.google.com/114982179961753756261
-
-//#define BENCHMARK
-//#define FAST
-//#define QUALITY
-
-//#extension GL_EXT_frag_depth : enable
 precision highp float;
+
+#if __VERSION__ >= 300
+out vec4 outColor;
+#define gl_FragColor outColor
+#define varying in
+#define texture2D(a,b) texture(a,b)
+#endif
 
 uniform vec4 params1;
 uniform vec4 params2;
 uniform ivec4 iParams;
-uniform vec4 uClock;
 uniform sampler2D uSampler;
 uniform sampler2D uNoise;
 uniform samplerCube uCubeMap;
 uniform ivec2 uWindow;
 uniform mat4 uMatrix;
 
-varying vec2 vTextureCoord;
+uniform float iTime;
+uniform vec3 iResolution;
 
-float iGlobalTime;
-vec2 iResolution;
 int stype = 0;
 int ctype = 0;
 bool oneface = false;
@@ -323,7 +320,6 @@ void main()
   applyGamma = nextbit(flags);
   //addNoise = nextbit(flags);
   bool rotatescene = nextbit(flags);
-  float clock0 = uClock[0];
   init();
 
   float xscale = params1[0];       // Width multiplier
@@ -333,7 +329,7 @@ void main()
   float camera = 10.0;
   float x = xscale*(gl_FragCoord.x - 0.5*width)/width;
   float y = xscale*(gl_FragCoord.y - 0.5*height)/width;
-  vec3 p = vec3(0.0, 0.0, -camera); // Eye position
+  vec3 p = vec3(0.0, 0.0, -camera);    // Eye position
   vec3 r = normalize(vec3(x, y, 1.0)); // Ray
 
   light = light0;

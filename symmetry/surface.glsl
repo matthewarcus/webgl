@@ -1,3 +1,5 @@
+#version 300 es
+
 // The MIT License (MIT)
 
 // Copyright (c) 2017 Matthew Arcus
@@ -24,12 +26,18 @@
 // taken from Abdelaziz Nait Merzouk's Fragmentarium shaders.
 // https://plus.google.com/114982179961753756261
 
+precision mediump float;
+
+// ES 300 compatibility
+out vec4 outColor;
+
+#define textureCube(a,b) texture(a,b)
+#define texture2D(a,b) texture(a,b)
+#define gl_FragColor outColor
+
 //#define BENCHMARK
 //#define FAST
-//#define QUALITY
-
-//#extension GL_EXT_frag_depth : enable
-precision highp float;
+#define QUALITY
 
 uniform vec4 params1;
 uniform vec4 params2;
@@ -42,8 +50,9 @@ uniform sampler2D uSampler;
 uniform sampler2D uNoise;
 uniform samplerCube uCubeMap;
 uniform mat4 uMatrix;
+uniform float iTime;
 
-varying vec2 vTextureCoord;
+in vec2 vTextureCoord;
 
 float clock0;
 float clock1;
@@ -85,7 +94,7 @@ float frand() {
   return abs(float(seed))/two31;
 }
 
-int mix(int seed, int n) {
+int rmix(int seed, int n) {
   seed += n;
   seed += seed*(8*1024);
   seed += seed/(128*1024);
@@ -133,6 +142,22 @@ float Kummer(vec4 P) {
   return k*k-lambda*p*q*r*s;
 }
 
+float Kummer2(vec4 p4) {
+  vec3 p = p4.xyz;
+  float mu2 = 0.334 + 3.0*(1.0-cos(0.3*clock2));
+  float lambda = (3.0*mu2-1.0)/(3.0-mu2);
+  float a2 = mu2, b = lambda;
+  vec3 A = vec3(1,1,1.0-b);
+  float B = -2.0*a2 + 2.0*b;
+  vec3 C = vec3(-4.0*b + 2.0, 2.0*b + 2.0, 2.0*b + 2.0);
+  vec3 D = vec3(4.0*b,-4.0*b,0);
+  float z = p.z;
+  float z2 = z*z;
+  float t = dot(p*p,p*p) + B*dot(p,p) + dot(C*p*p,p.yzx*p.yzx) +
+    z*dot(D*p,p) - b*z2*z2 + a2*a2 - b;
+  return t;
+}
+
 float Borg(vec4 p) {
   return sin(p.x*p.y)+sin(p.y*p.z)+sin(p.x*p.z);
 }
@@ -158,11 +183,44 @@ float Heart0(vec4 p) {
 float Heart(vec4 p) {
   float x = p.x; float y = p.z;
   float z = p.y; float w = p.w;
-  float k = x*x + 9.0/4.0*y*y + z*z -1.0;
+  float k = x*x + 9.0/4.0*y*y + z*z - w*w*1.0;
+  return k*k*k - w*x*x*z*z*z - 9.0/80.0*w*y*y*z*z*z;
+}
+
+float Heart1(vec4 p) {
+  float x = p.x; float y = p.z;
+  float z = p.y; float w = p.w;
+  float k = x*x + 9.0/4.0*y*y + z*z - 1.0;
   return k*k*k - x*x*z*z*z - 9.0/80.0*y*y*z*z*z;
 }
 
+float Torus0(vec4 p) {
+  float x = p.x; float y = p.z;
+  float z = p.y; float w = p.w;
+  float R = 1.0, r = 0.5;
+  float t = sqrt(x*x+y*y)-R*w;
+  return t*t+z*z-r*r*w*w;
+}
+
+float Torus(vec4 p) {
+  float x2 = p.x*p.x; float y2 = p.y*p.y;
+  float z2 = p.z*p.z; float w2 = p.w*p.w;
+  float k = 0.75;
+  float t = x2 + y2 + z2 + k*w2;
+  return t*t - 4.0*w2*(x2+y2);
+}
+
+float Havlicek(vec4 p) {
+  float x = p.x; float y = p.z;
+  float z = p.y; float w = p.w;
+  float K = 17.0;
+  return x*x*x*x + y*y*y*y + z*z*z*z - 6.0*(x*x*w*w + y*y*w*w + z*z*w*w) + K*w*w*w*w;
+}
+
 float Sphere(vec4 p) {
+  float x = p.z; float y = p.y;
+  float z = p.x; float w = p.w;
+  return x*w - y*z;
   // Well, a quadric of some sort, depending
   // on the projection.
   //
@@ -195,6 +253,11 @@ float Clebsch(vec4 p) {
   return x*x*x + y*y*y + z*z*z + w*w*w - t*t*t;
 }
 
+float Clebsch2(vec4 p) {
+  float x = p.x/p.w, y = p.y/p.w, z = p.z/p.w;
+  return 64.0*x*x*x + 48.0*x*x*z - 192.0*y*y*x + 48.0*y*y*z - 31.0*z*z*z - 54.0*z*z - 24.0*z;
+}
+
 float Cayley(vec4 p) {
   float x = p.x; float y = p.y;
   float z = p.z; float w = p.w;
@@ -215,7 +278,6 @@ float Chmutov10(vec4 p) {
   return T10(x)+T10(y)+T10(z)+1.0;
 }
 
-#if 0
 // These recurrences take a while to compile.
 float T11(float x) {
   return 2.0*x*T10(x) - T9(x);
@@ -223,6 +285,12 @@ float T11(float x) {
 float T12(float x) {
   return 2.0*x*T11(x) - T10(x);
 }
+float Chmutov12(vec4 p) {
+  float x = p.x; float y = p.y;
+  float z = p.z; float w = p.w;
+  return T12(x)+T12(y)+T12(z)+1.0;
+}
+
 float T13(float x) {
   return 2.0*x*T12(x) - T11(x);
 }
@@ -247,6 +315,18 @@ float T17(float x) {
 float T18(float x) {
   return 2.0*x*T17(x) - T16(x);
 }
+float T19(float x) {
+  return 2.0*x*T18(x) - T17(x);
+}
+float T20(float x) {
+  return 2.0*x*T19(x) - T18(x);
+}
+
+float Chmutov16(vec4 p) {
+  float x = p.x; float y = p.y;
+  float z = p.z; float w = p.w;
+  return T16(x)+T16(y)+T16(z)+1.0;
+}
 
 float Chmutov18(vec4 p) {
   float x = p.x; float y = p.y;
@@ -254,6 +334,13 @@ float Chmutov18(vec4 p) {
   return T18(x)+T18(y)+T18(z)+1.0;
 }
 
+float Chmutov20(vec4 p) {
+  float x = p.x; float y = p.y;
+  float z = p.z; float w = p.w;
+  return T20(x)+T20(y)+T20(z)+1.0;
+}
+
+#if 0
 // T9(x) + T9(y) + T9(z) + 1 = 0 where T9(x) =
 // 256x 9 − 576x 7 + 432x 5 − 120x 3 + 9x
 
@@ -381,10 +468,68 @@ float Sarti12(vec4 p){
 
 float Roman(vec4 p) {
   float r = 2.0;
-  float x = p.x, y = p.y, z = p.z;
+  float x = p.x, y = p.y, z = p.z, w = p.w;
   float eps = 0.0; //1e-4; // Fudge factor!
   // Use swizzle?
-  return x*x*y*y + y*y*z*z + z*z*x*x + r*r*x*y*z - eps;
+  return x*x*y*y + y*y*z*z + z*z*x*x + r*r*w*x*y*z - w*w*w*w*eps;
+}
+
+float Klein(vec4 p) {
+  float r = 2.0;
+  float x = p.x, y = p.y, z = p.z;
+  // Use swizzle?
+  return x*x*x*y + y*y*y*z + z*z*z*x;
+}
+
+float Cyclide0(vec4 p4) {
+  vec3 p = p4.xyz;
+  float a = 1.0;
+  float b = 0.95;
+  //float c = cos(iTime);
+  float c = sqrt(a*a-b*b);
+  float d = 1.0-cos(iTime);
+  vec3 A = vec3(a,0,0);
+  vec3 B = vec3(0,b,0);
+  float t0 = dot(p,p) + (b+d)*(b-d);
+  float t1 = dot(A,p) - c*d;
+  float t2 = dot(B,p);
+  return t0*t0 - 4.0*t1*t1 - 4.0*t2*t2;
+}
+
+float Cyclide(vec4 p4) {
+  vec3 p = p4.xyz;
+  float a = 1.0;
+  float b = 0.95;
+  //float c = cos(iTime);
+  float c = sqrt(a*a-b*b);
+  float d = 1.0-cos(iTime);
+  float K = (b+d)*(b-d);
+  float L = c*d;
+  vec3 M = vec3(a,0,0);
+  vec3 N = vec3(0,b,0);
+  float t0 = dot(p,p) + K;
+  float t1 = dot(M,p) - L;
+  float t2 = dot(N,p);
+  return t0*t0 - 4.0*t1*t1 - 4.0*t2*t2;
+}
+
+float Cyclide2(vec4 p) {
+  float a = 1.0;
+  float b = 0.95;
+  float c = sqrt(a*a-b*b);
+  float d = 1.0-cos(iTime);
+  p = vec4(p.xyz,dot(p.xyz,p.xyz));
+  float k = 2.0*sin(iTime);
+  mat4 M = mat4(1,k,0,0,
+                k,1,0,0,
+                0,0,1,0,
+                0,0,0,-1);
+  return dot(p,M*p)-0.1;
+}
+
+float Gyroid(vec4 p) {
+  float x = p.x, y = p.y, z = p.z;
+  return cos(x)*sin(y) + cos(y)*sin(z) + cos(z)*sin(x);
 }
 
 vec4 ctransform(vec4 p, float offset) {
@@ -395,6 +540,7 @@ vec4 ctransform(vec4 p, float offset) {
 }
 
 vec4 transform(vec4 p) {
+  //p.xywz = uMatrix*p.xywz;
   float k = 0.1*clock1;
   mat4 m = qmat(vec4(0.0,0.0,sin(k),cos(k)));
   p = m*p;
@@ -407,6 +553,10 @@ float Fun(vec4 p) {
   return Labs(p);
 #else
   p = transform(p);
+  return Gyroid(p);
+  //return Cyclide(p);
+  //return Clebsch2(p);
+  //return Chmutov16(p);
   //return Clebsch(p);
   //return Roman(p);
   //return Borg(p);
@@ -414,13 +564,17 @@ float Fun(vec4 p) {
   //return Quadratic(p);
   //return A2(p);
   //return Heart(p);
+  return Kummer2(p);
+  //return Torus(p);
+  //return Havlicek(p);
+  return Klein(p);
   if (stype == 0) return Labs(p);
   else if (stype == 1) return Barth(p);
   else if (stype == 2) return Endrass8(p);
   else if (stype == 3) return Barth10(p);
   else if (stype == 4) return Sarti12(p);
   else if (stype == 5) return Chmutov10(p);
-  else if (stype == 6) return Endrass8(p);
+  else if (stype == 6) return Endrass_8(p);
   else if (stype == 7) return Kummer(p);
   //else if (stype == 8) return Endrass_8(p);
   //else if (stype == 9) return Chmutov14(p);
@@ -499,9 +653,9 @@ vec3 selectColor(vec4 q, vec3 eye, vec3 n) {
   float gridy = y/w*R + uoffset;
   float gridz = x/w*R + uoffset;
   seed = 12345678;
-  seed = mix(seed,gridpoint(gridx));
-  seed = mix(seed,gridpoint(gridy));
-  seed = mix(seed,gridpoint(gridz));
+  seed = rmix(seed,gridpoint(gridx));
+  seed = rmix(seed,gridpoint(gridy));
+  seed = rmix(seed,gridpoint(gridz));
   if (ctype == 6) {
     return vec3(frand(),frand(),frand());
   }
@@ -534,6 +688,7 @@ const float minstep = 0.001;  // The smallest step
 const float initstep = 0.1;
 
 const float horizon = 20.0; // limit on k
+const float radius = 2.0;
 
 void solve(vec4 p0, vec4 r) {
   float k0 = 0.0, k1;
@@ -564,7 +719,7 @@ void solve(vec4 p0, vec4 r) {
       if (doHorizon && k1 > horizon) break;
       //x = x0+k1*a, y = y0+k1*b, z = z0+k1*c, w = 1.0;
       p = p0 + k1*r;
-      //if (x*x+y*y+z*z > radius*radius) break;
+      //if (dot(p.xyz/p.w,p.xyz/p.w) > radius*radius) break;
       a1 = Fun(p);
       //The idea here is to try and correct the
       // step size by seeing how close we are to
@@ -583,9 +738,9 @@ void solve(vec4 p0, vec4 r) {
         //step = perp(k0,a0,k1,a1); // Another nice idea...
         step = abs(step);
         step = min(step,maxstep);
-        // Don't grow step by more than 10%
+        // Don't grow step by more than a certain amount
         // A better strategy should be possible
-        // Detect overstepping & retreat.
+        // Detect overstepping & retreat maybe.
         step = max(step,minstep);
         step = min(step,maxincrease*step0);
         if (a1 <= a0) expected = 0.0;
@@ -613,18 +768,20 @@ void solve(vec4 p0, vec4 r) {
   n = normalize(n);
 
   vec3 eye = r.xyz;
-  vec3 baseColor = selectColor(p,eye,n);
-  //if (abs(y) < 0.1) baseColor = vec3(1.0,1.0,0.0);
   // Point normal towards eye
   if (dot(eye,n) > 0.0) n *= -1.0;
-  vec3 color = baseColor.xyz*ambient;
-  float k = dot(light,n);
-  if (doDiffuse && k > 0.0) {
-    color += baseColor*diffuse*k;
-  }
-  if (doSpecular && k > 0.0) {
-    float specular = pow(max(0.0,dot(reflect(light,n),eye)),4.0);
-    color += 0.5*specular*vec3(1.0,1.0,1.0);
+  vec3 baseColor = selectColor(p,eye,n);
+  vec3 color = baseColor;
+  if (ctype != 1) {
+    color *= ambient;
+    float k = dot(light,n);
+    if (doDiffuse && k > 0.0) {
+      color += baseColor*diffuse*k;
+    }
+    if (doSpecular && k > 0.0) {
+      float specular = pow(max(0.0,dot(reflect(light,n),eye)),4.0);
+      color += 0.5*specular*vec3(1.0,1.0,1.0);
+    }
   }
   if (applyGamma) color = sqrt(color);
   //color *= 0.5+0.5*frand();
@@ -662,10 +819,10 @@ void main(void) {
   clock3 = uClock[3];
   coffset = params2[2]; //rrepeat
 
-  light = normalize(vec3(0.5,1,-1));
+  light = normalize(vec3(0.5,1,1));
 
   // Projection parameters
-  float camera = 10.0;
+  float camera = 6.0;
   float xscale = params1[0];       // Width multiplier
   float yscale = params1[1];       // Height multiplier
   // Make sure width and height are even to keep
@@ -675,19 +832,19 @@ void main(void) {
   float x = xscale*(gl_FragCoord.x - 0.5*width)/width;
   float y = yscale*(gl_FragCoord.y - 0.5*height)/height;
 
-  vec4 p0 = vec4(0.0,0.0,-camera,1.0);
-  float z = 2.0; // Fixed distance to projection plane
+  vec4 p0 = vec4(0.0,0.0,camera,1.0);
+  float z = -3.0; // Fixed distance to projection plane
   vec4 r = normalize(vec4(x,y,z,0.0));
   p0 = uMatrix*p0;
   r = uMatrix*r;
   light = mat3(uMatrix)*light; // Light moves with camera
-
+  
   // Reverse z direction as most of our surfaces are more
   // interesting from that direction.
   // We could roll this into our matrix.
-  p0.z = -p0.z;
-  r.z = -r.z;
-  light.z = -light.z;
+  //p0.z = -p0.z;
+  //r.z = -r.z;
+  //light.z = -light.z;
   
   // Could move ray start to radius limit.
   // Move the ray a little from the origin.

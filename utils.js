@@ -43,6 +43,7 @@ function makeiframes(urls) {
 
 function hsva(h,s,v,a) {
     // 1,3,5 are pure R,G,B
+    h %= 1;
     if (a == undefined) a = 1
     h *= 6;
     const f = h%1
@@ -65,3 +66,15 @@ function hsva(h,s,v,a) {
     b = v*(s*b+1-s);
     return [r,g,b,a]
 }
+
+function test() {
+    let N = 10;
+    for (let i = 0; i <= N; i++) {
+        for (let j = 0; j <= N; j++) {
+            for (let k = 0; k <= N; k++) {
+                console.log(hsva(i/N,j/N,k/N,1));
+            }
+        }
+    }
+}
+//test()

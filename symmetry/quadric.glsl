@@ -1,3 +1,5 @@
+#version 300 es
+
 // The MIT License (MIT)
 
 // Copyright (c) 2017 Matthew Arcus
@@ -20,11 +22,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-// Contains functions computing polynomial for various surfaces
-// taken from Abdelaziz Nait Merzouk's Fragmentarium shaders.
-// https://plus.google.com/114982179961753756261
-
 precision highp float;
+
+out vec4 outColor;
 
 uniform vec4 params1;
 uniform vec4 params2;
@@ -36,7 +36,7 @@ uniform sampler2D uSampler;
 uniform sampler2D uNoise;
 uniform samplerCube uCubeMap;
 uniform mat4 uMatrix;
-varying vec2 vTextureCoord;
+in vec2 vTextureCoord;
 
 float clock1;
 float clock2;
@@ -64,7 +64,7 @@ float frand() {
   return abs(float(seed))/two31;
 }
 
-int mix(int seed, int n) {
+int mmix(int seed, int n) {
   seed += n;
   seed += seed*(8*1024);
   seed += seed/(128*1024);
@@ -105,7 +105,7 @@ vec3 selectColor(vec4 q, vec3 eye, vec3 mx, vec3 nx) {
     return defaultColor;
   }
   if (ctype == 1) {
-    return textureCube(uCubeMap,reflect(eye,nx)).rgb;
+    return texture(uCubeMap,reflect(eye,nx)).rgb;
   }
   float x = q.x, y = q.y, z = q.z, w = q.w;
   if (ctype == 2) {
@@ -119,15 +119,15 @@ vec3 selectColor(vec4 q, vec3 eye, vec3 mx, vec3 nx) {
     //vec3 p = normalize(vec3(abs(x),abs(y),abs(z)));
     p /= 1.0/dot(p,c); // Central projection
     vec2 texCoords = exp(uxfact)*vec2(dot(p,u)+uoffset,dot(p,v)+voffset);
-    vec3 col = texture2D(uSampler,texCoords).rgb;
+    vec3 col = texture(uSampler,texCoords).rgb;
     if (addNoise) {
-      col *= texture2D(uNoise,texCoords).rgb;
+      col *= texture(uNoise,texCoords).rgb;
     }
     return col;
   }
   if (ctype == 3) {
-    //return textureCube(uCubeMap,normalize(vec3(x/w,y/w,z/w))).rgb;
-    return textureCube(uCubeMap,mx).rgb;
+    //return texture(uCubeMap,normalize(vec3(x/w,y/w,z/w))).rgb;
+    return texture(uCubeMap,mx).rgb;
   }
   // Use a grid
   float R = 10.0;
@@ -146,9 +146,9 @@ vec3 selectColor(vec4 q, vec3 eye, vec3 mx, vec3 nx) {
                  abs(0.5*sin(K*z/w)+0.5));
   }
   seed = 12345678;
-  //seed = mix(seed,gridpoint(gridx));
-  seed = mix(seed,gridpoint(gridy));
-  seed = mix(seed,gridpoint(gridz));
+  //seed = mmix(seed,gridpoint(gridx));
+  seed = mmix(seed,gridpoint(gridy));
+  seed = mmix(seed,gridpoint(gridz));
   if (ctype == 6) {
     return vec3(frand(),frand(),frand());
   }
@@ -199,11 +199,12 @@ bool quadratic(float A, float B, float C,
   return true;
 }
 
+// (p+P)(q+Q) = pq + pQ + qP + PQ
 vec4 qmul(vec4 p, vec4 q) {
-  return vec4(cross(p.xyz,q.xyz),0.0) +
-    vec4(0.0,0.0,0.0,p.w*q.w-dot(p.xyz,q.xyz)) +
-    p.w*q + q.w*p;
+  vec3 P = p.xyz, Q = q.xyz;
+  return vec4(p.w*Q+q.w*P+cross(P,Q),p.w*q.w-dot(P,Q));
 }
+
 vec4 conj(vec4 p) {
   return vec4(-p.xyz,p.w);
 }
@@ -213,24 +214,74 @@ vec3 qrot(vec4 p, vec3 q) {
 vec3 iqrot(vec4 p, vec3 q) {
   return qmul(p, qmul(vec4(q,0.0), conj(p))).xyz;
 }
-vec4 exp(vec4 p, float t) {
+vec4 qexp(vec4 p, float t) {
   return vec4(sin(t)*p.xyz,cos(t));
+}
+
+// Smooth HSV to RGB conversion 
+// Function by iq, from https://www.shadertoy.com/view/MsS3Wc
+vec3 hsv2rgb( vec3 c ) {
+  vec3 rgb = clamp( abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0 );
+  rgb = rgb*rgb*(3.0-2.0*rgb); // cubic smoothing	
+  return c.z * mix( vec3(1.0), rgb, c.y);
+}
+
+float linedistance(vec3 p, vec3 A, vec3 B) {
+  vec3 d = B-A;
+  vec3 q = A+dot(p-A,d)/dot(d,d)*d;
+  return distance(p,q);
+}
+
+vec3 mkbary(vec2 p) {
+  return vec3(p,1.0-p.x-p.y);
+}
+
+float N = 8.0;
+vec3 getColor(vec3 p) {
+  p = abs(p);            // Map to primary quadrant
+  p = asin(p);
+  p /= dot(p,vec3(1));   // To x+y+z = 1 plane
+  vec2 frac = N * p.xy;  // To (0,0),(N,0),(0,N) triangle
+  vec2 xy = clamp(floor(frac),0.0,N-1.0);
+  frac -= xy;
+  float parity = float(dot(frac,vec2(1)) > 1.0);
+  float index = parity + 2.0*xy.y;
+
+  // Now find distance to lines in triangle. 
+  vec3 A = mkbary((xy+vec2(1,0))/N);
+  vec3 B = mkbary((xy+vec2(0,1))/N);
+  vec3 C = mkbary((parity==0.0?xy:xy+vec2(1))/N);
+  float eps = 0.005;
+  if (linedistance(p,A,B) < eps ||
+      linedistance(p,B,C) < eps ||
+      linedistance(p,C,A) < eps ||
+      false) {
+    return vec3(1);
+  }
+  return hsv2rgb(vec3(index/(2.0*N),0.8,0.8));
 }
 
 void solve(vec3 p, vec3 r) {
   //vec4 rot = normalize(vec4(1.0,2.0,3.0,4.0));
   // Pretty arbitrary rotation axis
   vec4 rot = normalize(vec4(1.0,1.0,1.0,0.0));
-  rot = exp(rot,0.1*clock2);
+  rot = qexp(rot,0.1*clock2);
   // The quadric parameters
-  vec3 trans = vec3(0.0,0.0,0.0);
+  //vec3 trans = vec3(0.0,0.0,0.0);
   vec3 P,Q;
   float R;
   if (stype == 0) {
     // Hyperbolic paraboloid & hyperboloid
-    P = vec3(1.0,-1.0,sin(0.3*clock1));
+    float C = sin(0.3*clock1);
+#if 1
+    P = vec3(1.0,-1.0,C);
+    Q = vec3(0.0,0.0,1.0-C);
+    R = C;
+#else
+    P = vec3(1.0,-1.0,C);
     Q = vec3(0.0,0.0,-1.0);
     R = 0.0;
+#endif
   } else if (stype == 1) {
     P = vec3(sin(0.3*clock1),2.0,3.0);
     Q = vec3(1.0,0.0,0.0);
@@ -248,10 +299,11 @@ void solve(vec3 p, vec3 r) {
     Q = vec3(0.0,0.0,0.0);
     R = sin(0.309*clock1);//0.0;
   }
+  R = 0.0; // NB!
   // Turn into rotation matrix4 for production
   p = qrot(rot,p);
   r = qrot(rot,r);
-  p += trans;
+  //p += trans;
   // Gradient is P*p+Q so centre is where P*p = -Q
   // If the surface passes through this point,
   // then we have a singularity.
@@ -269,7 +321,7 @@ void solve(vec3 p, vec3 r) {
   // or singularity, move the projection point to
   // rough solution & redo).
   // P is typically eg. (1,-1,0) & we evaluate (x^2 - y^2) the
-  // hard way. Pr.r = ax^2 + by^2 + cy^2.
+  // hard way. Pr.r = ax^2 + by^2 + cz^2.
   // (1,-1,0)*(x,y).(x,y)
   // (a,b,c)*(x,y,z).(x,y,z) = ax*x+b*y*y+c*z*z
 
@@ -301,12 +353,21 @@ void solve(vec3 p, vec3 r) {
 
   // Now p is the actual point, set n to the normal to the surface
   vec3 n = normalize(2.0*P*p + Q);
-  p -= trans; // Just undo translation, which is in object frame
+  //p -= trans; // Just undo translation, which is in object frame
   vec3 m = n;
   n = iqrot(rot,m);
   r = iqrot(rot,r);
   //p = iqrot(rot,p);
-  vec3 baseColor = selectColor(vec4(p,1.0),r,m,n);
+  //vec3 baseColor = selectColor(vec4(p,1.0),r,m,n);
+  vec3 baseColor = getColor(n);
+  if (false) {
+    vec2 uv = p.yz/p.x;
+    uv = abs(uv - round(uv));
+    float t = min(smoothstep(0.0,0.1,uv.x),
+                  smoothstep(0.0,0.1,uv.y));
+    baseColor = vec3(t,t,t);
+    if (length(p) < 0.1) baseColor = vec3(1,0,0);
+  }
   //if (p.z < -10.0) baseColor = vec3(1.0,0.0,0.0);
   float ambient = 0.6;
   float diffuse = 1.0-ambient;
@@ -322,7 +383,7 @@ void solve(vec3 p, vec3 r) {
   color += 0.7*specular*vec3(1.0,1.0,1.0);
   if (applyGamma) color = sqrt(color);
   //color *= 0.5+0.5*frand();
-  gl_FragColor = vec4(color,1.0);
+  outColor = vec4(color,1.0);
   //gl_FragDepthEXT = 0.5;
 }
 
@@ -332,7 +393,7 @@ void solve(vec3 p, vec3 r) {
   //seed += int(4567.0*gl_FragCoord.y);
   seed += int(1000000.0*vTextureCoord.x);
   seed += int(1000000.0*vTextureCoord.y);
-  vec4 noise = texture2D(uNoise, vTextureCoord);
+  vec4 noise = texture(uNoise, vTextureCoord);
   seed += int(1000000.0*noise.r);
 #endif
 

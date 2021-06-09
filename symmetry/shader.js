@@ -81,9 +81,14 @@
     let clock3 = 0;
     let progressive = false;
 
-    var modelMatrix = mat4.create();
-    var modelQuat = quat.create();
-    var tmpQuat = quat.create();
+    let mousex = 0;
+    let mousey = 0;
+    let mousex2 = 0;
+    let mousey2 = 0;
+    
+    let modelMatrix = mat4.create();
+    let modelQuat = quat.create();
+    let tmpQuat = quat.create();
     // Quaternion multiplication as a matrix.
     // 4th coordinate is real element of quaternion
     function qmat(out, q) {
@@ -111,17 +116,17 @@
         // Or use this slightly faster method
         //quat.scale(q,q,2/(1+quat.dot(q,q)));
     }
-    var xQuat = quat.fromValues(1,0,0,0);
-    var yQuat = quat.fromValues(0,1,0,0);
-    var zQuat = quat.fromValues(0,0,1,0);
+    let xQuat = quat.fromValues(1,0,0,0);
+    let yQuat = quat.fromValues(0,1,0,0);
+    let zQuat = quat.fromValues(0,0,1,0);
 
     // Initialize WebGL, returning the GL context or null if
     // WebGL isn't available or could not be initialized.
     function initWebGL(canvas,attributes) {
         let gl = null;
         try {
-            gl = canvas.getContext("experimental-webgl",attributes)
-            //gl = canvas.getContext("webgl2",attributes)
+            //gl = canvas.getContext("experimental-webgl",attributes)
+            gl = canvas.getContext("webgl2",attributes)
             //gl = canvas.getContext("webgl",attributes) 
         }
         catch(e) {
@@ -158,10 +163,17 @@
 
     function makeShader(source, shadertype) {
         const shader = gl.createShader(shadertype);
+        if (!source.match("^#version")) {
+            source = "#version 300 es\n#define HEADER\n#line 1\n" + source;
+        }
         gl.shaderSource(shader, source);
         gl.compileShader(shader);
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            alert("Error for " + shadertype + ": " + gl.getShaderInfoLog(shader));
+        let status = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+        if (shadertype == gl.FRAGMENT_SHADER) {
+            let log = gl.getShaderInfoLog(shader);
+            if (log) alert("Compile Log for " + shadertype + ":\n" + log);
+        }
+        if (!status) {
             error = true;
             return null;
         }
@@ -213,27 +225,28 @@
                 if (cubeTexture) {
                     gl.activeTexture(gl.TEXTURE3);
                     gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubeTexture);
-                    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+                    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                    //gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
                     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
                     gl.hint(gl.GENERATE_MIPMAP_HINT, gl.NICEST);
                     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
                 }
                 initBuffers();
-/*
-                window.addEventListener("mouseover",function() {
-                    if (!running) {
-                        // If we are now running, start animating.
-                        requestAnimationFrame(drawScene);
-                        timelast = null;
-                        //console.log("Running");
-                        running = true;
-                    }
-                },false);
-                window.addEventListener("mouseout",function() {
-                    //console.log("Stopping");
-                    running = false;
-                },false);
-*/
+                /*
+                  window.addEventListener("mouseover",function() {
+                  if (!running) {
+                  // If we are now running, start animating.
+                  requestAnimationFrame(drawScene);
+                  timelast = null;
+                  //console.log("Running");
+                  running = true;
+                  }
+                  },false);
+                  window.addEventListener("mouseout",function() {
+                  //console.log("Stopping");
+                  running = false;
+                  },false);
+                */
 	        window.addEventListener( 'mousedown', onMouseDown, false );
 	        window.addEventListener( 'wheel', onMouseWheel, false );
 
@@ -269,6 +282,7 @@
         gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubeTexture);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
         gl.texImage2D(type, 0, format, format, gl.UNSIGNED_BYTE, image);
+        //gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         resourceLoaded();
     }
 
@@ -297,11 +311,13 @@
         //gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, texture.image);
         gl.texImage2D(gl.TEXTURE_2D, 0, format, format, gl.UNSIGNED_BYTE, texture.image);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+        //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR); // This is default anyway
         //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         // For patterns that line up at the edge, may not want mirroring.
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
+        //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
         //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.hint(gl.GENERATE_MIPMAP_HINT, gl.NICEST);
@@ -310,15 +326,17 @@
         resourceLoaded();
     }
 
-    function initshader(url) {
+    function initshader(url,lastmodified) {
         url += "?"+ new Date().getTime();
         const request = new XMLHttpRequest();
         const shader = {}
         request.open("GET", url);
+        if (lastmodified) request.setRequestHeader("If-Modified-Since", lastmodified);
         request.onreadystatechange = function() {
             //console.log("onreadystatechange", request.readyState);
             if (request.readyState === 4) {
                 //console.log(request.status, request.getResponseHeader("Content-Type"));
+                console.log(request.status, request.getResponseHeader("Last-Modified"));
                 shader.source = request.responseText;
                 resourceLoaded();
             }
@@ -388,31 +406,41 @@
           "?: info !: mkurl"
 
     // A very much cut down version of Three.js OrbitalControls.js
-    var moveStartX, moveStartY;
+    let moveStartX, moveStartY;
     function moveStart(clientX,clientY) {
 	moveStartX = clientX;
 	moveStartY = clientY;
+        mousex = clientX;
+        mousey = gl.canvas.height - clientY;
+        mousex2 = mousex;
+        mousey2 = mousey;
+        if (started && !running) requestAnimationFrame(drawScene);
     }
     function moveEvent(clientX,clientY) {
+        // Don't forget, kids, y goes downwards in screen coordinates!
+        mousex = clientX;
+        mousey = gl.canvas.height - clientY;
+        mousex2 = mousex;
+        mousey2 = mousey;
+        //console.log("Setting",mousex,mousey);
         const w = gl.canvas.clientWidth;
         const h = gl.canvas.clientHeight;
-        // Don't forget, kids, x goes downwards in screen coordinates!
         const x0 = (-moveStartX+0.5*h)/h, y0 = (moveStartY-0.5*h)/h;
         const x1 = (-clientX+0.5*h)/h, y1 = (clientY-0.5*h)/h;
         //const r0 = Math.sqrt(x0*x0 + y0*y0);
         //const r1 = Math.sqrt(x1*x1 + y1*y1);
         const r = Math.sqrt((x1-x0)*(x1-x0) + (y1-y0)*(y1-y0))
-        if (r < 1e-2) return;
+        if (r > 1e-3) {
+            qrotate(xQuat,3.0*(y1-y0));
+            qrotate(yQuat,3.0*(x1-x0));
 /*
-        qrotate(xQuat,3.0*(y1-y0));
-        qrotate(yQuat,3.0*(x1-x0));
+            const rQuat = quat.fromValues(-(y1-y0)/r,(x1-x0)/r,0,0);
+            qrotate(rQuat,-3.0*r);
 */
-        const rQuat = quat.fromValues(-(y1-y0)/r,(x1-x0)/r,0,0);
-        qrotate(rQuat,-3.0*r);
-
+        }
         if (started && !running) requestAnimationFrame(drawScene);
-	moveStartX = clientX;
-	moveStartY = clientY;
+        moveStartX = clientX;
+        moveStartY = clientY;
     }
     function onMouseWheel( event ) {
 	event.preventDefault();
@@ -433,8 +461,11 @@
     }
     function onMouseUp( event ) {
 	event.preventDefault();
+        console.log("mouseup");
+        mousex2 = mousey2 = 0.0;
 	window.removeEventListener( 'mousemove', onMouseMove, false );
 	window.removeEventListener( 'mouseup', onMouseUp, false );
+        if (started && !running) requestAnimationFrame(drawScene);
     }
 
     function onTouchStart( event ) {
@@ -457,7 +488,7 @@
     const PAGEUP = 33, PAGEDOWN = 34, LEFT = 37, UP = 38, RIGHT = 39, DOWN = 40;
 
     function keydownHandler( event ) {
-        //console.log(event.keyCode);
+        console.log("Keydown: ", event.charCode, event.keyCode, event);
         const theta = 0.01;
 	switch ( event.keyCode ) {
 	case LEFT:
@@ -492,9 +523,10 @@
     }
     const NMAX = 256;
     function keypressHandler(event) {
+        console.log("Keypress: ", event.charCode, event.keyCode, event);
         if (!event.ctrlKey) {
             // Ignore event if control key pressed.
-            var c = String.fromCharCode(event.charCode)
+            let c = String.fromCharCode(event.charCode)
             switch(c) {
             case ' ':
                 running = !running;
@@ -605,6 +637,7 @@
             { location: gl.getUniformLocation(program, "uSampler"), value: 1 },
             { location: gl.getUniformLocation(program, "uNoise"), value: 2 },
             { location: gl.getUniformLocation(program, "uCubeMap"), value: 3 },
+            { location: gl.getUniformLocation(program, "iChannel0"), value: 1 },
         ];
 
         // potentially change the values each time around
@@ -623,7 +656,7 @@
 
         if (flags & (1<<6)) clock2 += delta;
         if (flags & (1<<7)) clock3 += delta;
-        if (flags & (1<<8)) clock0 += delta;
+        if (!(flags & (1<<8))) clock0 += delta; // clock0 always updating
         if (flags & (1<<9)) clock1 += delta;
 
         // If left too long, we lose precision.
@@ -664,10 +697,12 @@
         gl.uniform4f(gl.getUniformLocation(program, "vfact"),
                      vscale,vxfact,vyfact,voffset);
         // Uniforms for shadertoy shaders
+        gl.uniform4f(gl.getUniformLocation(program, "iMouse"),
+                     mousex,mousey,mousex2,mousey2);
         gl.uniform2f(gl.getUniformLocation(program, "iResolution"),
                      gl.canvas.width, gl.canvas.height);
-        gl.uniform1f(gl.getUniformLocation(program, "iGlobalTime"),
-                     clock0);
+        gl.uniform1f(gl.getUniformLocation(program, "iGlobalTime"), clock0); //Obsolete
+        gl.uniform1f(gl.getUniformLocation(program, "iTime"), clock0);
 
         if (setupshader) setupshader(gl,program,{ kfact: kfact,
                                                   clock2: clock2 });
@@ -729,6 +764,7 @@
     }
 
     function renderScene(delta) {
+        //console.log(mousex,mousey);
         initProgram(delta);
         if (!progressive) {
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -755,7 +791,7 @@
             if (timelast == null) {
                 timelast = timenow;
             } else {
-                frametime = 0.99*frametime+0.01*(timenow-timelast)
+                frametime = 0.95*frametime+0.01*(timenow-timelast)
             }
             delta = timenow-timelast;
             timelast = timenow;
@@ -793,8 +829,9 @@
         renderScene(delta/1000); // Time since last render in seconds
     }
 
-    var imgname = "color.jpg";
-    var cubedir = "skybox";
+    let imgname = "uvgrid.jpg";
+    //let imgname = "color.jpg";
+    let cubedir = "skybox";
     function mkurl() {
         let s = "?";
         s += "img=" + imgname;
@@ -829,10 +866,11 @@
     }
         
     let attributes = {
+        //antialias: true,
         //preserveDrawingBuffer: true,
-        //alpha: false,
-        //premultipliedAlpha: false
-        //antialias: false
+        //alpha: true,
+        //premultipliedAlpha: false,
+        //powerPreference: "high-performance"
     }
     window.runoncanvas = function(canvas,config) {
         help.innerHTML = config.helpstring || helpstring;
@@ -853,14 +891,17 @@
         if (config.setupshader) {
             setupshader = config.setupshader;
         }
+        let fsfile = config.fsfile;
         setinfo();
-        var options = window.location.search;
+        let options = window.location.search;
         if (options.length > 0) {
             // Strip off leading '?'
             options = options.slice(1).split('&');
             options.forEach(function(arg) {
                 let matches;
-                if (matches = arg.match(/^img=(.+)$/)) {
+                if (matches = arg.match(/^shader=(.+)$/)) {
+                    fsfile = matches[1];
+                } else if (matches = arg.match(/^img=(.+)$/)) {
                     imgname = matches[1];
                 } else if (matches = arg.match(/^cubedir=(.+)$/)) {
                     cubedir = matches[1];
@@ -912,13 +953,15 @@
                 }
             });
         }
-
+        //attributes.powerPreference = "high-performance";
+        //console.assert(attributes.antialias);
         gl = initWebGL(canvas,attributes);      // Initialize the GL context
+        //gl = initWebGL(canvas);      // Initialize the GL context
         // Only continue if WebGL is available and working
         if (gl) {
             //gl.getSupportedExtensions().map(s=>console.log(s));
-            //var isFragDepthAvailable = gl.getExtension("EXT_frag_depth");
-            //var standardDerivatives = gl.getExtension("OES_standard_derivatives");
+            //let isFragDepthAvailable = gl.getExtension("EXT_frag_depth");
+            let standardDerivatives = gl.getExtension("OES_standard_derivatives");
             //console.log(isFragDepthAvailable,standardDerivatives);
             //gl.clearColor(1.0, 1.0, 0.0, 1.0);  // Set clear color to yellow for debugging
             gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Set clear color to black
@@ -935,7 +978,7 @@
             initCubeTexture(dir + "py.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_POSITIVE_Y);
             initCubeTexture(dir + "pz.jpg", gl.RGBA, gl.TEXTURE_CUBE_MAP_POSITIVE_Z);
             vertexshader = initshader(config.vsfile);
-            fragmentshader = initshader(config.fsfile);
+            fragmentshader = initshader(fsfile);
             setTimeout(function(){
                 if (!started && !error) {
                     // FIXME: a list of timed out resources would be good here

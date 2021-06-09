@@ -1,3 +1,7 @@
+#version 300 es
+
+// Non-Shadertoy version of 2D Hyperbolic shader - use with hyperbolic.html
+
 // The MIT License (MIT)
 
 // Copyright (c) 2017 Matthew Arcus
@@ -23,11 +27,19 @@
 precision highp float; // Probably want maximum precision here.
 precision highp int;
 
+#if __VERSION__ >= 300
+out vec4 outColor;
+#define gl_FragColor outColor
+#define varying in
+#define texture2D(a,b) texture(a,b)
+#endif
+
+varying vec2 vTextureCoord; // Could use gl_FragCoord maybe?
+
 uniform sampler2D uSampler; // Texture sampler
-uniform vec4 ufact, vfact;
+uniform vec4 ufact, vfact, uClock;
 uniform vec4 params1, params2, params3;
 uniform ivec4 iParams; // Misc flags & settings
-varying vec2 vTextureCoord; // Could use gl_FragCoord maybe?
 
 int K = 5;
 const int ITERATIONS = 10;
@@ -88,12 +100,14 @@ vec2 csin(vec2 z) {
   return cdiv(cexp(vec2(-y,x))-cexp(vec2(y,-x)), vec2(0,2.0));
 }
 
+#if __VERSION__ < 300
 bool isnan(float x) {
   return x != x;
 }
 bool isnan(vec2 z) {
   return isnan(z.x) || isnan(z.y);
 }
+#endif
 
 // Taken from NR, simplified by using a fixed number of
 // iterations and removing negative modulus case.
@@ -160,6 +174,7 @@ vec2 dn(vec2 z, float k2) {
   return a*vec2(dnu*cnv*dnv,-k2*snu*cnu*snv);
 }
 
+#if __VERSION__ < 300
 float atanh(float r) {
   return 0.5*log((1.0+r)/(1.0-r));
 }
@@ -167,9 +182,9 @@ float atanh(float r) {
 float tanh(float x) {
   return (exp(2.0*x)-1.0)/(exp(2.0*x)+1.0);
 }
+#endif
 
-#if 0
-#if 0
+#if 1
 vec2 poly(vec2 w) {
    vec2 z = vec2(0,0);
    for (int n = MM; n < NN; n++) {
@@ -203,14 +218,13 @@ bool polyinv(vec2 z, out vec2 w) {
     }
     if (z1 == z0) return false;
     vec2 w2 = cdiv(cmul(w0,z1) - cmul(w1,z0),z1-z0);
-    if (isnan(w2) || length(w2) > 1.1) return false;
+    if (length(w2) > 1.1) return false;
     vec2 z2 = poly(w2)-z;
     w0 = w1; z0 = z1;
     w1 = w2; z1 = z2;
   }
   return false;
 }
-#endif
 
 // Invert z in circle radius r, centre w = (p,0)
 // z -> z - w
@@ -292,6 +306,7 @@ float square(float x) {
 }
 
 void main(void) {
+  float scale = 5.0;
   float xscale = params1[0];       // Width multiplier
   float yscale = params1[1];       // Height multiplier
   float xoffset = params1[2];
@@ -332,7 +347,10 @@ void main(void) {
   int hplane = next4bits(flags);
 
   float theta = PI/float(P); // Central angle of triangle
-  float phi = PI/float(Q); // Other angle of triangle
+  float phi = PI/float(Q);   // Other angle of triangle
+  //theta += 0.1*uClock[2]; ???
+  //phi += 0.1*uClock[3];   ???
+
   // Need picture of hyperbolic region
   // Third side of hyperbolic triangle is an inversion circle.
   // ODBC are on x-axis, A is height 1 above B, so OBA is a right angle and BA = 1
@@ -349,7 +367,8 @@ void main(void) {
 
   float xlim = 1.0;//ufact[1];
   float eta = 0.1*vyfact;
-  float radius = !hyperbolic ? bfact : diskradius(p,r);
+  float radius = diskradius(p,r);
+  //float radius = !hyperbolic ? bfact : diskradius(p,r);
 
   vec2 z = vTextureCoord;
   float x = z.x, y = z.y;
@@ -358,6 +377,8 @@ void main(void) {
     // No half-plane
     x = -xscale*(x - 0.5);
     y = yscale*(y - 0.5);
+    x *= scale;
+    y *= scale;
   } else if (hplane == 4) {
     // Sides are boundaries
     x = xscale*(1.0-x);
@@ -379,7 +400,7 @@ void main(void) {
     float k2 = 1.0/(kfact+1.0); //0.5; //k = 1/sqrt(2)
     float x0, y0;
     if (hplane == 0) {
-#if 1
+#if 0
       z = cmul(z,vec2(0.5,0.5));
       z = cn(z,k2);
 #else

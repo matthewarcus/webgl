@@ -1,6 +1,10 @@
+#version 300 es
+precision mediump float;
+
 //#extension GL_OES_standard_derivatives : enable
 
-precision highp float;
+layout (location = 0) out vec4 outColor;
+
 uniform sampler2D uSampler;
 uniform samplerCube uCubeMap;
 uniform vec2 iResolution;
@@ -113,9 +117,11 @@ mat4 qmat(vec4 q) {
 
 mat4 m,minv;
 
+#if 0
 float round(float x) {
   return floor(x+0.5);
 }
+#endif
 
 bool gridpoint(vec3 p, int parity) {
   if (GRID == 0.0) return false;
@@ -203,7 +209,7 @@ vec2 getuv(float u, float v, out bool flip) {
   else if (v > 1.0) v = 2.0 - v;
   else flip = false;
   u = 1.0-u; v = 1.0-v;
-  // Now rotate square by 5PI/4
+  // Now rotate square by PI/4
   // and enlarge by 1.854;
   vec2 uv = cn(1.854*vec2(-u-v,u-v),0.5);
   //uv *= 0.97;
@@ -327,7 +333,7 @@ vec4 getMapColor(vec3 q, int color) {
   //float coslat = 2*r/(1+r*r);
   //float sinlat = (1-r*r)/(1+r*r);
   vec3 cubedir = spherical(vec2(lat,lon));
-  return textureCube(uCubeMap,cubedir);
+  return texture(uCubeMap,cubedir);
 #endif
 }
 
@@ -348,7 +354,7 @@ void testImage( out vec4 fragColor, in vec2 fragCoord ) {
   //float coslat = 2*r/(1+r*r);
   //float sinlat = (1-r*r)/(1+r*r);
   vec3 cubedir = spherical(vec2(lat,lon));
-  fragColor = textureCube(uCubeMap,cubedir);
+  fragColor = texture(uCubeMap,cubedir);
 #endif
 }
 
@@ -450,8 +456,8 @@ void main() {
   clock2 = uClock[2];
   clock3 = uClock[3];
   C = 4.0 + 1.0*params1[2];
-  K = 2.0 + 1.0*params1[3];
+  K = 1.1; //2.0 + 1.0*params1[3];
   K2 = K*K;
-  mainImage(gl_FragColor, gl_FragCoord.xy);
+  mainImage(outColor, gl_FragCoord.xy);
   //testImage(gl_FragColor, gl_FragCoord.xy);
 }

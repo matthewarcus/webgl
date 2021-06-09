@@ -1,20 +1,25 @@
 function setupcubic(gl,program,config) {
     const PHI = 1.618033989;
     function solvelines(K) {
+        // Solving some quadratic, A = 3, B = 3, C = 1-K
         const D = Math.sqrt(9-12*(1-K))
         const z = (-3-D)/6;
         const w = (-3+D)/6;
         const A = (K*8 + z*z*z + w*w*w - 1)/3;
         const B =  z*z*w-z*w*w;
+        // The function of interest
         function beval(a) {
             const b = -0.5*(2*a*a*z + A + B)/(w*w - a*a);
             return b;
         }
+        // Find feval(a) == 0
         function feval(a) {
             const b = beval(a);
             const t = 2*(b*b*(-a + w) + a*z*z) + A - B;
             return t;
         }
+        // This is just some crazy root finding
+        // Looks like abs(w) is a lower bound on the answer
         const xbase = Math.abs(w);
         let eps = 1e-2;
         let x0 = xbase, f0 = -1e10;
@@ -34,6 +39,7 @@ function setupcubic(gl,program,config) {
             }
         }
         const a = (x0+x1)/2;
+        console.log(K,a,beval(a),feval(a))
         return [a,beval(a)]
     }
     //var K0 = 1.0, a = PHI-1, b = PHI;

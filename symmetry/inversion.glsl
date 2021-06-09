@@ -1,7 +1,10 @@
-precision highp float;
-uniform vec4 uClock;
+#version 300 es
+precision mediump float;
+uniform float iTime;
 uniform vec2 iResolution;
-uniform mat4 uMatrix;
+uniform vec4 iMouse;
+
+out vec4 outColor;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -91,7 +94,7 @@ vec3 getColor(int i) {
 }
 
 bool intersectScene(Ray r, out Hit hit) {
-  float t = uClock[1]*0.5;
+  float t = iTime*0.5;
   mat3 m = mat3(cos(t),-sin(t),0,sin(t),cos(t),0,0,0,1);
   setVertices();
   bool found = false;
@@ -132,15 +135,15 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
   vec2 uv = 2.0*fragCoord.xy/iResolution.xy - 1.0;
   vec3 p = vec3(0,0,-6.0);
   vec3 d = normalize(vec3(iResolution.x/iResolution.y * uv.x, uv.y, 3));
-  p = vec3(uMatrix * vec4(p,1));
-  d = mat3(uMatrix) * d;
+  //p = vec3(uMatrix * vec4(p,1));
+  //d = mat3(uMatrix) * d;
   p += vec3(-0.5,-0.5,0);
-  light = mat3(uMatrix) * light;
+  //light = mat3(uMatrix) * light;
   fragColor = solve(Ray(p,d));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 void main() {
-  mainImage(gl_FragColor, gl_FragCoord.xy);
+  mainImage(outColor, gl_FragCoord.xy);
 }

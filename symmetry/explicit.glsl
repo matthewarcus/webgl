@@ -1,12 +1,32 @@
+#version 300 es
+
 precision highp float;
+
+out vec4 outColor;
 
 #define M_PI 3.14159
 #define M_1_PI (1.0/M_PI)
 uniform ivec2 uWindow;
 uniform float uAlpha;
 uniform int uSeed;
-uniform vec4 params1;
-uniform vec4 params2;
+//uniform vec4 params1;
+//uniform vec4 params2;
+uniform vec2 iResolution;
+uniform float iTime;
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord );
+
+void main() {
+  mainImage(outColor, gl_FragCoord.xy);
+}
+
+#define texelFetch(x,y,z) (vec4(0))
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// explicit.glsl
+//
+////////////////////////////////////////////////////////////////////////////////
 
 int seed = 12345678;
 float frand() {
@@ -236,13 +256,12 @@ vec3 radiance(Ray r) {
   return acc;
 }
 
-const int nsamples = 2;
+const int nsamples = 1;
 
 float width, height;
-void render(float x, float y) {
-  float time = params2[3];
+vec4 render(float x, float y) {
   seed = hash(seed+uSeed);
-  seed = hash(seed+int(time*1000.0));
+  seed = hash(seed+int(iTime*1000.0));
   seed = hash(seed+int(x));
   seed = hash(seed+int(y));
   seed = hash(seed+int(x*y));
@@ -250,8 +269,8 @@ void render(float x, float y) {
   vec3 cx = vec3(width*.5135/height,0.0,0.0);
   vec3 cy = normalize(cross(cx,cam.d))*.5135;
   vec3 col = vec3(0);
-  for (int sy = 0; sy<2; sy++){     // 2x2 subpixel rows
-    for (int sx = 0; sx<2; sx++){   // 2x2 subpixel cols
+  for (int sy = 0; sy<1; sy++){     // 2x2 subpixel rows
+    for (int sx = 0; sx<1; sx++){   // 2x2 subpixel cols
       vec3 r = vec3(0);
       for (int s = 0; s < nsamples; s++){
         float r1 = 2.0*frand(), dx=r1<1.0 ? sqrt(r1)-1.0 : 1.0-sqrt(2.0-r1);
@@ -260,18 +279,17 @@ void render(float x, float y) {
           cy*( ( (float(sy)+0.5 + dy)/2.0 + y)/height - 0.5) + cam.d;
         r += radiance(Ray(cam.o+d*140.0,normalize(d)))*(1.0/float(nsamples));
       } // Camera rays are pushed ^^^^^ forward to start in interior
-      col += 0.25*vec3(gamma(r.x),gamma(r.y),gamma(r.z));
+      col += vec3(gamma(r.x),gamma(r.y),gamma(r.z));
     }
   }
-  gl_FragColor = vec4(clamp(col,0.0,1.0),uAlpha);
+  return vec4(clamp(col,0.0,1.0),0.01);
 }
 
-void main(){
-  float time = params2[3];
-  width = float(uWindow.x);
-  height = float(uWindow.y);
+void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
+  width = iResolution.x;
+  height = iResolution.y;
   setupSpheres();
-  float x = gl_FragCoord.x;
-  float y = gl_FragCoord.y;
-  render(x,y);
+  float x = fragCoord.x;
+  float y = fragCoord.y;
+  fragColor = render(x,y);
 }
