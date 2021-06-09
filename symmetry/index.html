@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+  <head>
+    <title>GLSL Test</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <link rel="stylesheet" href="../webgl.css" type="text/css">
+    <script src="../utils.js"></script>
+  </head>
+  <body>
+    <script src="../js/gl-matrix/gl-matrix.js"></script>
+    <script src="shader2.js"></script>
+    <script>
+      window.onload = function () {
+      let config = {
+          progressive: true,
+          imgname: "uvgrid.jpg",
+          //imgname: "color.jpg",
+          cubedir: "skybox",
+          vsfile: "basicvertexshader.glsl"
+      }
+      runoncanvas(glcanvas, config);
+      }
+    </script>      
+    <div id="info"></div>
+    <div id="help"></div>
+    <canvas id="glcanvas">
+      Your browser doesn't appear to support the <code>&lt;canvas&gt;</code> element.
+    </canvas>
+  </body>
+</html>
