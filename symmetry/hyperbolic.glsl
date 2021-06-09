@@ -184,7 +184,8 @@ float tanh(float x) {
 }
 #endif
 
-#if 1
+#if 0
+#if 0
 vec2 poly(vec2 w) {
    vec2 z = vec2(0,0);
    for (int n = MM; n < NN; n++) {
@@ -218,13 +219,14 @@ bool polyinv(vec2 z, out vec2 w) {
     }
     if (z1 == z0) return false;
     vec2 w2 = cdiv(cmul(w0,z1) - cmul(w1,z0),z1-z0);
-    if (length(w2) > 1.1) return false;
+    if (isnan(w2) || length(w2) > 1.1) return false;
     vec2 z2 = poly(w2)-z;
     w0 = w1; z0 = z1;
     w1 = w2; z1 = z2;
   }
   return false;
 }
+#endif
 
 // Invert z in circle radius r, centre w = (p,0)
 // z -> z - w
@@ -400,7 +402,7 @@ void main(void) {
     float k2 = 1.0/(kfact+1.0); //0.5; //k = 1/sqrt(2)
     float x0, y0;
     if (hplane == 0) {
-#if 0
+#if 1
       z = cmul(z,vec2(0.5,0.5));
       z = cn(z,k2);
 #else

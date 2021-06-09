@@ -553,7 +553,7 @@ float Fun(vec4 p) {
   return Labs(p);
 #else
   p = transform(p);
-  return Gyroid(p);
+  //return Gyroid(p);
   //return Cyclide(p);
   //return Clebsch2(p);
   //return Chmutov16(p);
@@ -564,10 +564,10 @@ float Fun(vec4 p) {
   //return Quadratic(p);
   //return A2(p);
   //return Heart(p);
-  return Kummer2(p);
+  //return Kummer2(p);
   //return Torus(p);
   //return Havlicek(p);
-  return Klein(p);
+  //return Klein(p);
   if (stype == 0) return Labs(p);
   else if (stype == 1) return Barth(p);
   else if (stype == 2) return Endrass8(p);
