@@ -39,11 +39,13 @@ const int CHAR_C = 67;
 const int CHAR_D = 68;
 const int CHAR_E = 69;
 
+const int CHAR_S = 83;
+const int CHAR_T = 84;
 const int CHAR_X = 88;
 const int CHAR_Y = 89;
 const int CHAR_Z = 90;
 
-bool doMirror = true;
+bool doMirror = false;
 bool doGamma = true;
 bool doSpecular = true;
 bool doDiffuse = true;
@@ -70,14 +72,17 @@ vec2 rotate(vec2 p, float t) {
   return cos(t)*p + sin(t)*vec2(-p.y,p.x);
 }
 
-vec4 transform(vec4 p) {
-  //return p;
-  float k = 0.123*iTime;
-  vec3 axis = vec3(0,0,-1);
+vec4 transform4(vec4 p) {
+  if (!key(CHAR_S)) {
+    p *= 2.0/dot(p,p);
+    p.w -= 1.0;
+  }
+  float k = 0.1*PI*iTime;
+  vec3 axis = vec3(0,0,1);
   axis = normalize(axis);
   p = qmul(p,vec4(sin(k)*axis,cos(k)));
-  p.xz = rotate(p.xz,0.55); // Pentagon centred
-  //p.yz = rotate(p.yz,0.36);   // Triangle centred
+  if (key(CHAR_C)) p.xz = rotate(p.xz,0.55); // Pentagon centred
+  if (key(CHAR_T)) p.yz = rotate(p.yz,0.36);   // Triangle centred
   return p;
 }
 
@@ -88,31 +93,70 @@ float Barth(vec4 p) {
   float z2 = z*z; float w2 = w*w;
   float A = 4.0*(phi2*x2-y2)*(phi2*y2-z2)*(phi2*z2-x2);
   float B = x2 + y2 + z2 - w2;
-  float K = 0.5+0.5*sin(0.2*iTime); // K is mixed parameter, K=0.5 is "the" Barth Sextic
+  float K = 0.5+0.5*sin(-0.1*PI*iTime); // K is mixed parameter, K=0.5 is "the" Barth Sextic
   K = max(K,0.01);
   return (1.0-K)*(1.0+2.0*phi)*w2*B*B - K*A;
 }
 
-float Fun(vec4 p) {
-  p = transform(p);
+float Clebsch(vec4 p) {
+  float t = dot(p,vec4(1));
+  return dot(p*p,p)-t*t*t;
+}
+
+float Kummer(vec4 P) {
+  float A = sqrt(2.0);
+  float mu2 = 0.334 + 3.0*(1.0-sin(0.2*iTime));
+  float x = P.x; float y = P.y;
+  float z = P.z; float w = P.w;
+  float p = w-z-A*x;
+  float q = w-z+A*x;
+  float r = w+z+A*y;
+  float s = w+z-A*y;
+  float lambda = (3.0*mu2-1.0)/(3.0-mu2);
+  float k = x*x + y*y + z*z - mu2*w*w;
+  return k*k-lambda*p*q*r*s;
+}
+
+float Sarti12(vec4 p){
+  vec4 p2 = p*p;
+  vec4 p4 = p2*p2;
+  float l1 = dot(p2,p2);
+  float l2 = p2.x*p2.y+p2.z*p2.w;
+  float l3 = p2.x*p2.z+p2.y*p2.w;
+  float l4 = p2.y*p2.z+p2.x*p2.w;
+  float l5 = p.x*p.y*p.z*p.w;
+  float s10 = l1*(l2*l3+l2*l4+l3*l4), s11 = l1*l1*(l2+l3+l4);
+  float s12=l1*(l2*l2+l3*l3+l4*l4),    s51=l5*l5*(l2+l3+l4),  s234=l2*l2*l2+l3*l3*l3+l4*l4*l4;
+  float s23p=l2*(l2+l3)*l3,   s23m=l2*(l2-l3)*l3; 
+  float s34p=l3*(l3+l4)*l4,       s34m=l3*(l3-l4)*l4; 
+  float s42p=l4*(l4+l2)*l2,       s42m=l4*(l4-l2)*l2;
+  float Q12=dot(p,p); Q12=Q12*Q12*Q12; Q12=Q12*Q12; 
+  float S12=33.*sqrt(5.)*(s23m+s34m+s42m)+19.*(s23p+s34p+s42p)+10.*s234-14.*s10+2.*s11-6.*s12-352.*s51+336.*l5*l5*l1+48.*l2*l3*l4;
+  return 22.*Q12-243.*S12;
+}
+
+float Fun(vec3 p0) {
+  vec4 p = vec4(p0,1);
+  p = transform4(p);
   return Barth(p);
+  //return Clebsch(p);
+  //return Sarti12(p);
+  //return Kummer(p);
 }
 
 vec3 skybox(vec3 dir) {
   return pow(textureLod(iChannel0,dir,0.0).rgb,vec3(2.2));
 }
 
-vec3 getColor(vec4 q, vec3 eye, vec3 n) {
-  q = transform(q);
-#if 0
-  return abs(n);
-#elif 0
-  return defaultColor;
-#else
-  vec3 color = skybox(reflect(eye,n));
-  return color;
-  return min(vec3(0.75),sqrt(color));
-#endif
+vec3 getColor(vec3 r, vec3 n) {
+  if (!doMirror) {
+    //return defaultColor;
+    return abs(n);
+  } else {
+    vec3 color = skybox(reflect(r,n));
+    return color;
+    return min(vec3(0.75),sqrt(color));
+  }
 }
 
 // Solution parameters.
@@ -122,13 +166,13 @@ const float maxstep = 1.0;     // The largest step that can be taken.
 const float minstep = 0.001;  // The smallest step
 const float initstep = 0.1;
 
-vec3 solve(vec4 p0, const vec4 r) {
+vec3 solve(vec3 p0, vec3 r) {
   float k0 = 0.0, k1;
-  float a0 = Fun(p0), a1;
+  vec3 p = p0;
+  float a0 = Fun(p), a1;
   bool bracketed = false;
   bool found = false;
   float step = initstep;
-  vec4 p;
   vec3 color = skybox(r.xyz);
   for (int i = 0; i < iterations; i++) {
     k1 = k0 + step;
@@ -167,25 +211,25 @@ vec3 solve(vec4 p0, const vec4 r) {
 
   // Compute gradient & normal
   // Should probably scale eps here
-  float eps = 1e-3;
-  vec2 delta = vec2(eps,0.0);
-  assert(length(p) < 200.0);
-#if 0
+  float eps = 1e-4;
+  vec2 delta = k0*vec2(eps,0.0);
+#if 1
   p = p0 + k0*r; // Ensure p corresponds to k0 and a0
-  vec3 n = vec3(Fun(p + delta.xyyy), Fun(p + delta.yxyy), Fun(p + delta.yyxy)) - a0;
+  vec3 n = vec3(Fun(p + delta.xyy), Fun(p + delta.yxy), Fun(p + delta.yyx)) - a0;
 #else
   // Not sure how much difference this makes
-  vec3 n = vec3(Fun(p + delta.xyyy) - Fun(p - delta.xyyy),
-                Fun(p + delta.yxyy) - Fun(p - delta.yxyy),
-                Fun(p + delta.yyxy) - Fun(p - delta.yyxy));
+  vec3 n = vec3(Fun(p + delta.xyy) - Fun(p - delta.xyy),
+                Fun(p + delta.yxy) - Fun(p - delta.yxy),
+                Fun(p + delta.yyx) - Fun(p - delta.yyx));
 #endif
+  vec4 p4 = transform4(vec4(p,1));
   float grad = abs(length(n));
   n = normalize(n);
 
-  vec3 eye = r.xyz;
   // Point normal towards eye
-  if (dot(eye,n) > 0.0) n *= -1.0;
-  vec3 baseColor = getColor(p,eye,n);
+  //assert(dot(r,n) < 0.0);
+  if (dot(r,n) > 0.0) n *= -1.0;
+  vec3 baseColor = getColor(r,n);
   color = baseColor;
   if (!doMirror) {
     color *= ambient;
@@ -194,11 +238,11 @@ vec3 solve(vec4 p0, const vec4 r) {
       color += baseColor*diffuse*k;
     }
     if (doSpecular && k > 0.0) {
-      float specular = pow(max(0.0,dot(reflect(light,n),eye)),specpower);
+      float specular = pow(max(0.0,dot(reflect(light,n),r)),specpower);
       color += 0.8*specular*vec3(1);
     }
   }
-  color = mix(skybox(r.xyz),color,max(0.0,(50.0-k0)/50.0));
+  //color = mix(skybox(r.xyz),color,max(0.0,(50.0-k0)/50.0));
   return color;
 }
 
@@ -214,11 +258,10 @@ vec3 transform(vec3 p) {
 }
 
 void mainImage(out vec4 fragColor, vec2 fragCoord) {
-  doMirror = key(CHAR_X);
+  doMirror = !key(CHAR_X);
   light = vec3(0.5,1,1);
   // Projection parameters
-  float camera = 5.0;
-
+  float camera = 6.0;
   vec3 p = vec3(0,0,camera);
   p = transform(p);
   light = transform(light); // Light moves with camera
@@ -231,7 +274,7 @@ void mainImage(out vec4 fragColor, vec2 fragCoord) {
       vec3 r = normalize(vec3(uv,-2));
       r = transform(r);
       r = normalize(r);
-      color += solve(vec4(p,1),vec4(r,0));
+      color += solve(p,r);
     }
   }
   color /= float(AA*AA);

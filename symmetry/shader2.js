@@ -1,5 +1,6 @@
 "use strict";
 /* TODO
+iMouse.z
 Use fetch instead of XMLHttpRequest
 Periodic retry of shader downloads (or just on demand)
 Multiple textures (make configurable)
@@ -7,27 +8,6 @@ Shadertoy style keyboard texture (or uniform)
 Popup menu for config
  */
 (function () {
-    let gl;
-    let program;
-    let vertexshader;
-    let fragmentshader;
-
-    let buffers;
-    let vertexBuffer;
-    let showinfo = false;
-
-    let running = false;
-    let started = false;
-    let error = false;
-    let timelast = null;
-    let frametime = 0;
-
-    let itime = 0;
-    let progressive = false;
-
-    let mousex = 0;
-    let mousey = 0;
-    
     function initShaders(vshader,fshader) {
         let vertexShader = makeShader(vshader.source,gl.VERTEX_SHADER);
         let fragmentShader = makeShader(fshader.source,gl.FRAGMENT_SHADER);
@@ -41,7 +21,6 @@ Popup menu for config
         if (!gl.getProgramParameter(program, gl.LINK_STATUS) || gl.isContextLost()) {
             alert("Unable to initialize the shader program: " +
                   gl.getProgramInfoLog(program));
-            error = true;
             return false;
         }
         return program;
@@ -56,7 +35,6 @@ Popup menu for config
         gl.compileShader(shader);
         if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
             alert("Error for " + shadertype + ": " + gl.getShaderInfoLog(shader));
-            error = true;
             return null;
         }
         return shader;
@@ -70,15 +48,69 @@ Popup menu for config
                    1000);
     }
     
+    function initshader(url,lastmodified) {
+        const READY_STATE_DONE = 4;
+        url += "?"+ new Date().getTime(); // Prevent use of cached response - is there a better way?
+        const request = new XMLHttpRequest();
+        const shader = { url: url}
+        request.open("GET", url);
+        if (lastmodified) request.setRequestHeader("If-Modified-Since", lastmodified);
+        request.onreadystatechange = function() {
+            console.log("onreadystatechange", request.readyState);
+            if (request.readyState === READY_STATE_DONE) {
+                let status = request.status;
+                let error = false;
+                console.log(status, request.getResponseHeader("Content-Type"));
+                if (status != 200) {
+                    alert("Shader load failed: " + request.status + " " + request.statusText);
+                    error = true;
+                } else {
+                    let modtime = request.getResponseHeader("Last-Modified");
+                    if (modtime) {
+                        console.log(request.status, modtime);
+                        shader.lastmodified = modtime;
+                    }
+                    shader.source = request.responseText;
+                }
+                resourceLoaded(error);
+            }
+        }
+        resourcesLoading++;
+        request.send(null); // No body
+        return shader;
+    }
+
+    let gl;
+    let xprogram;
+    let vertexshader;
+    let fragmentshader;
+
+    let buffers;
+    let vertexBuffer;
+    let showinfo = false;
+
+    let running = false;
+    let started = false;
+    let timelast = null;
+    let frametime = 0;
+
+    let itime = 0;
+    let progressive = false;
+
+    let mousex = 0;
+    let mousey = 0;
+    
     let framenumber = 0;
     let resourcesLoading = 0;
     let cubeTexture = null;
-    function resourceLoaded() {
+
+    function resourceLoaded(error) {
         resourcesLoading--;
+        console.log(resourcesLoading);
         if (resourcesLoading == 0 && !error) {
             //startreloadtimer(fragmentshader);
-            //console.log("Resources loaded");
-            program = initShaders(vertexshader,fragmentshader);
+            console.log("Resources loaded");
+            let program = initShaders(vertexshader,fragmentshader);
             if (program) {
                 if (cubeTexture) {
                     gl.activeTexture(gl.TEXTURE3);
@@ -106,6 +138,9 @@ Popup menu for config
                 });
                 // Use window param explicitly here.
                 window.requestAnimationFrame(drawScene);
+
+                console.log("Resetting program");
+                xprogram = program;
                 started = true;
             }
         }
@@ -168,37 +203,6 @@ Popup menu for config
         gl.generateMipmap(gl.TEXTURE_2D);
         // Only once the textures are loaded do we try and draw
         resourceLoaded();
-    }
-
-    function initshader(url,lastmodified) {
-        const READY_STATE_DONE = 4;
-        url += "?"+ new Date().getTime(); // Prevent use of cached response - is there a better way?
-        const request = new XMLHttpRequest();
-        const shader = { url: url}
-        request.open("GET", url);
-        if (lastmodified) request.setRequestHeader("If-Modified-Since", lastmodified);
-        request.onreadystatechange = function() {
-            console.log("onreadystatechange", request.readyState);
-            if (request.readyState === READY_STATE_DONE) {
-                let status = request.status;
-                console.log(status, request.getResponseHeader("Content-Type"));
-                if (status != 200) {
-                    alert("Shader load failed: " + request.status + " " + request.statusText);
-                    error = true;
-                } else {
-                    let modtime = request.getResponseHeader("Last-Modified");
-                    if (modtime) {
-                        console.log(request.status, modtime);
-                        shader.lastmodified = modtime;
-                    }
-                    shader.source = request.responseText;
-                }
-                resourceLoaded();
-            }
-        }
-        resourcesLoading++;
-        request.send(null); // No body
-        return shader;
     }
 
     // Allocate and initialize storage on the GPU for the scene data.
@@ -324,7 +328,7 @@ Popup menu for config
     // then one key up event to finish. Could toggle on first down,
     // rather than on up. Doing it on up is simpler.
     function keydownHandler( event ) {
-        console.log("Keydown: ", event.charCode, event.keyCode, event);
+        //console.log("Keydown: ", event.charCode, event.keyCode, event);
         let code = event.keyCode
         if (code < maxCode) {
             setbit(code,keyspressed);
@@ -337,7 +341,7 @@ Popup menu for config
     }
 
     function keyupHandler( event ) {
-        console.log("Keyup: ", event.charCode, event.keyCode, event);
+        //console.log("Keyup: ", event.charCode, event.keyCode, event);
         let code = event.keyCode
         if (code < maxCode) {
             clearbit(code,keyspressed);
@@ -350,6 +354,7 @@ Popup menu for config
         //event.preventDefault();
     }
 
+    let fsfile;
     function keypressHandler(event) {
         //console.log("Keypress: ", event.charCode, event.keyCode, event);
         if (!event.ctrlKey) {
@@ -365,7 +370,11 @@ Popup menu for config
                 }
                 break;
             case '?': showinfo = !showinfo; setinfo(); break;
-            case '!': alert(mkurl()); break;
+            //case '!': alert(mkurl()); break;
+            case '!':
+                console.log("Reload shader");
+                fragmentshader = initshader(fsfile);
+                break;
             default: return;
             }
             if (started && !running) requestAnimationFrame(drawScene);
@@ -373,6 +382,7 @@ Popup menu for config
         }
     }
     function initProgram(delta,config) {
+        let program = xprogram;
         gl.useProgram(program);
         
         // Finally associate the buffer with the vertexPositionAttribute
@@ -511,7 +521,8 @@ Popup menu for config
     window.runoncanvas = function(canvas,config) {
         let cubedir = config.cubedir;
         let imgname = config.imgname;
-        let fsfile = config.fsfile;
+
+        fsfile = config.fsfile;
 
         // 'help' div is defined in HTML
         help.innerHTML = config.helpstring || helpstring;
@@ -577,7 +588,7 @@ Popup menu for config
             fragmentshader = initshader(fsfile);
 
             setTimeout(function(){
-                if (!started && !error) {
+                if (resourcesLoading > 0) {
                     // FIXME: a list of timed out resources would be good here
                     alert("Page load timed out: " + resourcesLoading + " resources still loading");
                 }
